@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dart_ytmusic_api/enums.dart';
@@ -26,10 +27,14 @@ class YTMusic {
     _client = http.Client();
     _baseHeaders = {
       "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
       "Accept":
           "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
+      "sec-ch-ua":
+          '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Linux"',
     };
   }
 
@@ -62,10 +67,9 @@ class YTMusic {
       for (final cookieString in cookies.split('; ')) {
         try {
           final cookie = Cookie.fromSetCookieValue(cookieString);
-          cookieJar.saveFromResponse(
-            Uri.parse('https://www.youtube.com/'),
-            [cookie],
-          );
+          cookieJar.saveFromResponse(Uri.parse('https://www.youtube.com/'), [
+            cookie,
+          ]);
         } catch (e) {
           //
         }
@@ -90,45 +94,80 @@ class YTMusic {
 
   /// Fetches the configuration data required for API requests.
   Future<void> fetchConfig() async {
+    // Hardcoded fallbacks — stable values that rarely/never change.
+    // INNERTUBE_CLIENT_VERSION is the only one that drifts; we try to extract
+    // it from the homepage HTML below and fall back to this known-good value.
+    config['INNERTUBE_API_VERSION'] = 'v1';
+    config['INNERTUBE_CLIENT_NAME'] = 'WEB_REMIX';
+    config['INNERTUBE_CONTEXT_CLIENT_NAME'] = '67';
+    config['INNERTUBE_CLIENT_VERSION'] = '1.20260428.11.00';
+    config['INNERTUBE_API_KEY'] = '';
+    config['VISITOR_DATA'] = '';
+    config['GL'] = 'US';
+    config['HL'] = 'en';
+    config['DEVICE'] = '';
+    config['PAGE_CL'] = '';
+    config['PAGE_BUILD_LABEL'] = '';
+
     late final String html;
     final uri = Uri.parse("https://music.youtube.com/");
     if (ytMusicHomeRawHtml != null) {
       html = ytMusicHomeRawHtml!;
     } else {
       final cookies = await cookieJar.loadForRequest(uri);
-      final cookieString =
-          cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
-      final headers = {..._baseHeaders};
+      final cookieString = cookies
+          .map((cookie) => '${cookie.name}=${cookie.value}')
+          .join('; ');
+      final headers = {
+        ..._baseHeaders,
+        'upgrade-insecure-requests': '1',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'sec-fetch-user': '?1',
+      };
       if (cookieString.isNotEmpty) {
         headers['cookie'] = cookieString;
       }
-      final response = await _client.get(uri, headers: headers);
-
-      _saveCookiesFromHeaders(uri, response.headers);
-      html = response.body;
+      try {
+        final response = await _client.get(uri, headers: headers);
+        _saveCookiesFromHeaders(uri, response.headers);
+        html = response.body;
+      } catch (e) {
+        print('Warning: failed to fetch YouTube Music homepage: $e');
+        return; // use fallback config as-is
+      }
     }
 
     if (html.contains('not optimized for your browser')) {
-      print('Browser compatibility error in HTML response');
-      throw Exception('Browser compatibility error detected');
+      print(
+        'Warning: YouTube Music returned a compatibility warning page — using hardcoded fallback config',
+      );
+      return; // fallbacks already set above
     }
-    config['VISITOR_DATA'] = _extractValue(html, r'"VISITOR_DATA":"(.*?)"');
-    config['INNERTUBE_CONTEXT_CLIENT_NAME'] = _extractValue(
-        html, r'"INNERTUBE_CONTEXT_CLIENT_NAME":\s*(-?\d+|\"(.*?)\")');
-    config['INNERTUBE_CLIENT_VERSION'] =
-        _extractValue(html, r'"INNERTUBE_CLIENT_VERSION":"(.*?)"');
-    config['DEVICE'] = _extractValue(html, r'"DEVICE":"(.*?)"');
-    config['PAGE_CL'] = _extractValue(html, r'"PAGE_CL":\s*(-?\d+|\"(.*?)\")');
-    config['PAGE_BUILD_LABEL'] =
-        _extractValue(html, r'"PAGE_BUILD_LABEL":"(.*?)"');
-    config['INNERTUBE_API_KEY'] =
-        _extractValue(html, r'"INNERTUBE_API_KEY":"(.*?)"');
-    config['INNERTUBE_API_VERSION'] =
-        _extractValue(html, r'"INNERTUBE_API_VERSION":"(.*?)"');
-    config['INNERTUBE_CLIENT_NAME'] =
-        _extractValue(html, r'"INNERTUBE_CLIENT_NAME":"(.*?)"');
-    config['GL'] = _extractValue(html, r'"GL":"(.*?)"');
-    config['HL'] = _extractValue(html, r'"HL":"(.*?)"');
+
+    void tryExtract(String key, String pattern) {
+      final val = _extractValue(html, pattern);
+      if (val.isNotEmpty) config[key] = val;
+    }
+
+    tryExtract('VISITOR_DATA', r'"VISITOR_DATA":"(.*?)"');
+    tryExtract(
+      'INNERTUBE_CONTEXT_CLIENT_NAME',
+      r'"INNERTUBE_CONTEXT_CLIENT_NAME":\s*(-?\d+|\"(.*?)\")',
+    );
+    tryExtract(
+      'INNERTUBE_CLIENT_VERSION',
+      r'"INNERTUBE_CLIENT_VERSION":"(.*?)"',
+    );
+    tryExtract('DEVICE', r'"DEVICE":"(.*?)"');
+    tryExtract('PAGE_CL', r'"PAGE_CL":\s*(-?\d+|\"(.*?)\")');
+    tryExtract('PAGE_BUILD_LABEL', r'"PAGE_BUILD_LABEL":"(.*?)"');
+    tryExtract('INNERTUBE_API_KEY', r'"INNERTUBE_API_KEY":"(.*?)"');
+    tryExtract('INNERTUBE_API_VERSION', r'"INNERTUBE_API_VERSION":"(.*?)"');
+    tryExtract('INNERTUBE_CLIENT_NAME', r'"INNERTUBE_CLIENT_NAME":"(.*?)"');
+    tryExtract('GL', r'"GL":"(.*?)"');
+    tryExtract('HL', r'"HL":"(.*?)"');
   }
 
   /// Extracts a value from HTML using a regular expression.
@@ -145,11 +184,7 @@ class YTMusic {
     ClientRequestOptions? options,
   }) async {
     final baseUrl = "https://music.youtube.com/";
-    final fullQuery = {
-      ...query,
-      "alt": "json",
-      "key": config['INNERTUBE_API_KEY'],
-    };
+    final fullQuery = {...query, "prettyPrint": "false"};
 
     final uri = Uri.parse(baseUrl).replace(
       path: "youtubei/${config['INNERTUBE_API_VERSION']}/$endpoint",
@@ -157,21 +192,29 @@ class YTMusic {
     );
 
     final cookies = await cookieJar.loadForRequest(uri);
-    final cookieString =
-        cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
+    final cookieString = cookies
+        .map((cookie) => '${cookie.name}=${cookie.value}')
+        .join('; ');
 
     final headers = <String, String>{
       ..._baseHeaders,
-      "x-origin": baseUrl,
+      "accept": "*/*",
+      "content-type": "application/json",
+      "origin": "https://music.youtube.com",
+      "referer": "https://music.youtube.com/",
+      "x-origin": "https://music.youtube.com",
+      "x-goog-authuser": "0",
       "X-Goog-Visitor-Id": config['VISITOR_DATA'] ?? "",
       "X-YouTube-Client-Name": config['INNERTUBE_CONTEXT_CLIENT_NAME'] ?? '',
       "X-YouTube-Client-Version": config['INNERTUBE_CLIENT_VERSION'] ?? '',
       "X-YouTube-Device": config['DEVICE'] ?? '',
       "X-YouTube-Page-CL": config['PAGE_CL'] ?? '',
       "X-YouTube-Page-Label": config['PAGE_BUILD_LABEL'] ?? '',
-      "X-YouTube-Utc-Offset":
-          (-DateTime.now().timeZoneOffset.inMinutes).toString(),
-      "Content-Type": "application/json",
+      "X-YouTube-Utc-Offset": (-DateTime.now().timeZoneOffset.inMinutes)
+          .toString(),
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "same-origin",
+      "sec-fetch-site": "same-origin",
     };
 
     if (cookieString.isNotEmpty) {
@@ -219,9 +262,7 @@ class YTMusic {
           ],
           "sessionIndex": {},
         },
-        "user": {
-          "enableSafetyMode": false,
-        },
+        "user": {"enableSafetyMode": false},
       },
       ...body,
     };
@@ -236,11 +277,12 @@ class YTMusic {
       _saveCookiesFromHeaders(uri, response.headers);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final jsonData = json.decode(response.body);
+        final jsonData = await Isolate.run(() => json.decode(response.body));
         return jsonData;
       } else {
         throw Exception(
-            'Failed to make request to $uri - ${response.statusCode} - [${response.body}]');
+          'Failed to make request to $uri - ${response.statusCode} - [${response.body}]',
+        );
       }
     } on http.ClientException catch (e) {
       print('HTTP Client Exception during request to $uri: $e');
@@ -264,8 +306,10 @@ class YTMusic {
 
   /// Retrieves search suggestions for a given query.
   Future<List<String>> getSearchSuggestions(String query) async {
-    final response = await constructRequest("music/get_search_suggestions",
-        body: {"input": query});
+    final response = await constructRequest(
+      "music/get_search_suggestions",
+      body: {"input": query},
+    );
 
     return traverseList(response, ["query"]).whereType<String>().toList();
   }
@@ -290,12 +334,13 @@ class YTMusic {
       "search",
       body: {
         "query": query,
-        "params": "Eg-KAQwIARAAGAAgACgAMABqChAEEAMQCRAFEAo%3D"
+        "params": "Eg-KAQwIARAAGAAgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
 
-    final results =
-        traverseList(searchData, ["musicResponsiveListItemRenderer"]);
+    final results = traverseList(searchData, [
+      "musicResponsiveListItemRenderer",
+    ]);
     final mappedResults = results.map(SongParser.parseSearchResult).toList();
 
     return mappedResults;
@@ -307,13 +352,13 @@ class YTMusic {
       "search",
       body: {
         "query": query,
-        "params": "Eg-KAQwIABABGAAgACgAMABqChAEEAMQCRAFEAo%3D"
+        "params": "Eg-KAQwIABABGAAgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
 
-    return traverseList(searchData, ["musicResponsiveListItemRenderer"])
-        .map(VideoParser.parseSearchResult)
-        .toList();
+    return traverseList(searchData, [
+      "musicResponsiveListItemRenderer",
+    ]).map(VideoParser.parseSearchResult).toList();
   }
 
   /// Performs a search specifically for artists with the given query and returns a list of artist details.
@@ -322,13 +367,13 @@ class YTMusic {
       "search",
       body: {
         "query": query,
-        "params": "Eg-KAQwIABAAGAAgASgAMABqChAEEAMQCRAFEAo%3D"
+        "params": "Eg-KAQwIABAAGAAgASgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
 
-    return traverseList(searchData, ["musicResponsiveListItemRenderer"])
-        .map(ArtistParser.parseSearchResult)
-        .toList();
+    return traverseList(searchData, [
+      "musicResponsiveListItemRenderer",
+    ]).map(ArtistParser.parseSearchResult).toList();
   }
 
   /// Performs a search specifically for albums with the given query and returns a list of album details.
@@ -337,13 +382,13 @@ class YTMusic {
       "search",
       body: {
         "query": query,
-        "params": "Eg-KAQwIABAAGAEgACgAMABqChAEEAMQCRAFEAo%3D"
+        "params": "Eg-KAQwIABAAGAEgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
 
-    return traverseList(searchData, ["musicResponsiveListItemRenderer"])
-        .map(AlbumParser.parseSearchResult)
-        .toList();
+    return traverseList(searchData, [
+      "musicResponsiveListItemRenderer",
+    ]).map(AlbumParser.parseSearchResult).toList();
   }
 
   /// Performs a search specifically for playlists with the given query and returns a list of playlist details.
@@ -352,13 +397,13 @@ class YTMusic {
       "search",
       body: {
         "query": query,
-        "params": "Eg-KAQwIABAAGAAgACgBMABqChAEEAMQCRAFEAo%3D"
+        "params": "Eg-KAQwIABAAGAAgACgBMABqChAEEAMQCRAFEAo%3D",
       },
     );
 
-    return traverseList(searchData, ["musicResponsiveListItemRenderer"])
-        .map(PlaylistParser.parseSearchResult)
-        .toList();
+    return traverseList(searchData, [
+      "musicResponsiveListItemRenderer",
+    ]).map(PlaylistParser.parseSearchResult).toList();
   }
 
   /// Retrieves detailed information about a song given its video ID.
@@ -382,16 +427,17 @@ class YTMusic {
       throw Exception("Invalid videoId");
     }
 
-    final data = await constructRequest("next", body: {
-      "videoId": videoId,
-      "playlistId": "RDAMVM$videoId",
-      "isAudioOnly": true,
-    });
+    final data = await constructRequest(
+      "next",
+      body: {
+        "videoId": videoId,
+        "playlistId": "RDAMVM$videoId",
+        "isAudioOnly": true,
+      },
+    );
 
-    final tabs = data?['contents']?['singleColumnMusicWatchNextResultsRenderer']
-                ?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']
-            ?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']
-        ?['playlistPanelRenderer']?['contents'];
+    final tabs =
+        data?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer']?['contents'];
 
     if (tabs == null) {
       throw Exception("Invalid response structure");
@@ -407,20 +453,17 @@ class YTMusic {
       // Parse artist information from longBylineText
       final longBylineRuns = renderer['longBylineText']?['runs'];
       final artistName = longBylineRuns?[0]?['text'] ?? '';
-      final artistId = longBylineRuns?[0]?['navigationEndpoint']
-          ?['browseEndpoint']?['browseId'];
+      final artistId =
+          longBylineRuns?[0]?['navigationEndpoint']?['browseEndpoint']?['browseId'];
 
       // Parse album information (usually at index 2 in longBylineText.runs)
       AlbumBasic? album;
       if (longBylineRuns != null && longBylineRuns.length > 2) {
         final albumName = longBylineRuns[2]?['text'];
-        final albumId = longBylineRuns[2]?['navigationEndpoint']
-            ?['browseEndpoint']?['browseId'];
+        final albumId =
+            longBylineRuns[2]?['navigationEndpoint']?['browseEndpoint']?['browseId'];
         if (albumName != null && albumId != null) {
-          album = AlbumBasic(
-            name: albumName,
-            albumId: albumId,
-          );
+          album = AlbumBasic(name: albumName, albumId: albumId);
         }
       }
 
@@ -438,10 +481,7 @@ class YTMusic {
         type: "SONG",
         videoId: videoId,
         title: title,
-        artists: ArtistBasic(
-          name: artistName,
-          artistId: artistId,
-        ),
+        artists: ArtistBasic(name: artistName, artistId: artistId),
         album: album,
         duration: duration,
         thumbnails: thumbnails,
@@ -471,13 +511,19 @@ class YTMusic {
     }
 
     final data = await constructRequest("next", body: {"videoId": videoId});
-    final browseId =
-        traverse(traverseList(data, ["tabs", "tabRenderer"])[1], ["browseId"]);
+    final browseId = traverse(traverseList(data, ["tabs", "tabRenderer"])[1], [
+      "browseId",
+    ]);
 
-    final lyricsData =
-        await constructRequest("browse", body: {"browseId": browseId});
-    final lyrics =
-        traverseString(lyricsData, ["description", "runs", "text"])?.trim();
+    final lyricsData = await constructRequest(
+      "browse",
+      body: {"browseId": browseId},
+    );
+    final lyrics = traverseString(lyricsData, [
+      "description",
+      "runs",
+      "text",
+    ])?.trim();
 
     return lyrics
         ?.replaceAll("\r", "")
@@ -492,18 +538,24 @@ class YTMusic {
     }
 
     final data = await constructRequest("next", body: {"videoId": videoId});
-    final browseId =
-        traverse(traverseList(data, ["tabs", "tabRenderer"])[1], ["browseId"]);
+    final browseId = traverse(traverseList(data, ["tabs", "tabRenderer"])[1], [
+      "browseId",
+    ]);
 
     final lyricsData = await constructRequest(
       "browse",
       body: {"browseId": browseId},
       options: ClientRequestOptions(
-          clientName: androidClientName, clientVersion: androidClientVersion),
+        clientName: androidClientName,
+        clientVersion: androidClientVersion,
+      ),
     );
 
-    final timedLyrics =
-        traverse(lyricsData, ['contents', 'type', 'lyricsData']);
+    final timedLyrics = traverse(lyricsData, [
+      'contents',
+      'type',
+      'lyricsData',
+    ]);
 
     if (timedLyrics == null) {
       return null;
@@ -525,17 +577,24 @@ class YTMusic {
 
   /// Retrieves a list of songs by a specific artist given the artist's ID.
   Future<List<SongDetailed>> getArtistSongs(String artistId) async {
-    final artistData =
-        await constructRequest("browse", body: {"browseId": artistId});
-    final browseToken =
-        traverse(artistData, ["musicShelfRenderer", "title", "browseId"]);
+    final artistData = await constructRequest(
+      "browse",
+      body: {"browseId": artistId},
+    );
+    final browseToken = traverse(artistData, [
+      "musicShelfRenderer",
+      "title",
+      "browseId",
+    ]);
 
     if (browseToken is List) {
       return [];
     }
 
-    final songsData =
-        await constructRequest("browse", body: {"browseId": browseToken});
+    final songsData = await constructRequest(
+      "browse",
+      body: {"browseId": browseToken},
+    );
     final continueToken = traverse(songsData, ["continuation"]);
     late final Map moreSongsData;
 
@@ -549,28 +608,35 @@ class YTMusic {
     }
 
     return [
-      ...traverseList(songsData, ["musicResponsiveListItemRenderer"]),
-      ...traverseList(moreSongsData, ["musicResponsiveListItemRenderer"]),
-    ]
-        .map((s) => SongParser.parseArtistSong(
-              s,
-              ArtistBasic(
-                artistId: artistId,
-                name: traverseString(artistData, ["header", "title", "text"]) ??
-                    '',
-              ),
-            ))
+          ...traverseList(songsData, ["musicResponsiveListItemRenderer"]),
+          ...traverseList(moreSongsData, ["musicResponsiveListItemRenderer"]),
+        ]
+        .map(
+          (s) => SongParser.parseArtistSong(
+            s,
+            ArtistBasic(
+              artistId: artistId,
+              name:
+                  traverseString(artistData, ["header", "title", "text"]) ?? '',
+            ),
+          ),
+        )
         .toList();
   }
 
   /// Retrieves a list of albums by a specific artist given the artist's ID.
   Future<List<AlbumDetailed>> getArtistAlbums(String artistId) async {
-    final artistData =
-        await constructRequest("browse", body: {"browseId": artistId});
-    final artistAlbumsData =
-        traverseList(artistData, ["musicCarouselShelfRenderer"])[0];
-    final browseBody =
-        traverse(artistAlbumsData, ["moreContentButton", "browseEndpoint"]);
+    final artistData = await constructRequest(
+      "browse",
+      body: {"browseId": artistId},
+    );
+    final artistAlbumsData = traverseList(artistData, [
+      "musicCarouselShelfRenderer",
+    ])[0];
+    final browseBody = traverse(artistAlbumsData, [
+      "moreContentButton",
+      "browseEndpoint",
+    ]);
     if (browseBody is List) {
       return [];
     }
@@ -586,29 +652,31 @@ class YTMusic {
               item,
               ArtistBasic(
                 artistId: artistId,
-                name: traverseString(albumsData, ["header", "runs", "text"]) ??
+                name:
+                    traverseString(albumsData, ["header", "runs", "text"]) ??
                     '',
               ),
             ),
           )
-          .where(
-            (album) => album.artist.artistId == artistId,
-          ),
+          .where((album) => album.artist.artistId == artistId),
     ];
   }
 
   Future<List<AlbumDetailed>> getArtistSingles(String artistId) async {
-    final artistData =
-        await constructRequest("browse", body: {"browseId": artistId});
+    final artistData = await constructRequest(
+      "browse",
+      body: {"browseId": artistId},
+    );
 
     final artistSinglesData =
         traverseList(artistData, ["musicCarouselShelfRenderer"]).length < 2
-            ? []
-            : traverseList(artistData, ["musicCarouselShelfRenderer"])
-                .elementAt(1);
+        ? []
+        : traverseList(artistData, ["musicCarouselShelfRenderer"]).elementAt(1);
 
-    final browseBody =
-        traverse(artistSinglesData, ["moreContentButton", "browseEndpoint"]);
+    final browseBody = traverse(artistSinglesData, [
+      "moreContentButton",
+      "browseEndpoint",
+    ]);
     if (browseBody is List) {
       return [];
     }
@@ -625,14 +693,13 @@ class YTMusic {
               item,
               ArtistBasic(
                 artistId: artistId,
-                name: traverseString(singlesData, ["header", "runs", "text"]) ??
+                name:
+                    traverseString(singlesData, ["header", "runs", "text"]) ??
                     '',
               ),
             ),
           )
-          .where(
-            (album) => album.artist.artistId == artistId,
-          ),
+          .where((album) => album.artist.artistId == artistId),
     ];
   }
 
@@ -645,17 +712,21 @@ class YTMusic {
     final artistSongs = await getArtistSongs(album.artist.artistId ?? '');
     final filteredSongs = artistSongs.where(
       (song) => album.songs
-          .where((item) =>
-              '${song.album?.name}-${song.name}' ==
-              '${item.album?.name}-${item.name}')
+          .where(
+            (item) =>
+                '${song.album?.name}-${song.name}' ==
+                '${item.album?.name}-${item.name}',
+          )
           .isNotEmpty,
     );
 
     final songsThatArentInArtist = album.songs.where(
       (item) => artistSongs
-          .where((song) =>
-              '${song.album?.name}-${song.name}' ==
-              '${item.album?.name}-${item.name}')
+          .where(
+            (song) =>
+                '${song.album?.name}-${song.name}' ==
+                '${item.album?.name}-${item.name}',
+          )
           .isEmpty,
     );
 
@@ -664,41 +735,53 @@ class YTMusic {
 
   /// Retrieves detailed information about a playlist given its playlist ID.
   Future<PlaylistFull> getPlaylist(String playlistId) async {
-    if (playlistId.startsWith("PL")) {
+    if (!playlistId.startsWith("VL")) {
       playlistId = "VL$playlistId";
     }
 
-    final data =
-        await constructRequest("browse", body: {"browseId": playlistId});
+    final data = await constructRequest(
+      "browse",
+      body: {"browseId": playlistId},
+    );
 
     return PlaylistParser.parse(data, playlistId);
   }
 
   /// Retrieves a list of videos from a playlist given its playlist ID.
   Future<List<VideoDetailed>> getPlaylistVideos(String playlistId) async {
-    if (playlistId.startsWith("PL")) {
+    if (!playlistId.startsWith("VL")) {
       playlistId = "VL$playlistId";
     }
 
-    final playlistData =
-        await constructRequest("browse", body: {"browseId": playlistId});
-
-    final songs = traverseList(
-      playlistData,
-      ["musicPlaylistShelfRenderer", "musicResponsiveListItemRenderer"],
+    final playlistData = await constructRequest(
+      "browse",
+      body: {"browseId": playlistId},
     );
+
+    final songs = traverseList(playlistData, [
+      "musicPlaylistShelfRenderer",
+      "musicResponsiveListItemRenderer",
+    ]);
     dynamic continuation = traverse(playlistData, ["continuation"]);
-    if (continuation is List) {
+    if (continuation is List && (continuation).isNotEmpty) {
       continuation = continuation[0];
     }
-    while (continuation is! List) {
+    while (continuation is String && continuation.isNotEmpty) {
       final songsData = await constructRequest(
         "browse",
         query: {"continuation": continuation},
       );
-      songs
-          .addAll(traverseList(songsData, ["musicResponsiveListItemRenderer"]));
-      continuation = traverse(songsData, ["continuation"]);
+      songs.addAll(
+        traverseList(songsData, ["musicResponsiveListItemRenderer"]),
+      );
+      final next = traverse(songsData, ["continuation"]);
+      if (next is String) {
+        continuation = next;
+      } else if (next is List && (next).isNotEmpty) {
+        continuation = next[0];
+      } else {
+        break;
+      }
     }
 
     return songs
@@ -709,16 +792,21 @@ class YTMusic {
 
   /// Retrieves the home sections of the music platform.
   Future<List<HomeSection>> getHomeSections() async {
-    final data =
-        await constructRequest("browse", body: {"browseId": feMusicHome});
+    final data = await constructRequest(
+      "browse",
+      body: {"browseId": feMusicHome},
+    );
 
     final sections = traverseList(data, ["sectionListRenderer", "contents"]);
     dynamic continuation = traverseString(data, ["continuation"]);
     while (continuation != null) {
-      final data = await constructRequest("browse",
-          query: {"continuation": continuation});
-      sections
-          .addAll(traverseList(data, ["sectionListContinuation", "contents"]));
+      final data = await constructRequest(
+        "browse",
+        query: {"continuation": continuation},
+      );
+      sections.addAll(
+        traverseList(data, ["sectionListContinuation", "contents"]),
+      );
       continuation = traverseString(data, ["continuation"]);
     }
 
