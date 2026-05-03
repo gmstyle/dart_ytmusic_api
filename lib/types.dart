@@ -149,6 +149,7 @@ class AlbumBasic {
 }
 
 class SongDetailed implements SearchResult {
+  @override
   final String type;
   final String videoId;
   final String name;
