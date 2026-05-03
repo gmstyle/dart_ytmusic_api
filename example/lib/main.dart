@@ -128,6 +128,7 @@ class HomePage extends StatelessWidget {
       _ApiItem('Get Artist Singles', _getArtistSingles),
       _ApiItem('Get Album', _getAlbum),
       _ApiItem('Get Playlist', _getPlaylist),
+      _ApiItem('Get Playlist Videos', _getPlaylistVideos),
     ]),
     _ApiGroup('Browse', [_ApiItem('Home Sections', (_) => _getHomeSections())]),
   ];
@@ -136,7 +137,7 @@ class HomePage extends StatelessWidget {
     if (label.contains('Artist')) return 'UC4G-AJa7kn8oumI6TT2WXYw';
     if (label.contains('Album')) return 'MPREb_4OAyJwegLNd';
     if (label.contains('Playlist')) {
-      return 'RDCLAK5uy_nfs_t4FUu00E5ED6lveEBBX1VMYe1mFjk';
+      return 'PLtlNphvWba01n19M7iz1lDEBsEXufYVMB';
     }
     if (label.contains('Song') ||
         label.contains('Video') ||
@@ -470,6 +471,11 @@ Future<List<String>> _getPlaylist(String id) async {
     'Artist: ${p.artist.name}',
     'Videos: ${p.videoCount}',
   ];
+}
+
+Future<List<String>> _getPlaylistVideos(String id) async {
+  final r = await _api.getPlaylistVideos(id);
+  return r.map((v) => '${v.name} · ${v.videoId}').toList();
 }
 
 Future<List<String>> _getHomeSections() async {
