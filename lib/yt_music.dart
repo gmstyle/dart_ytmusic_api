@@ -185,6 +185,10 @@ class YTMusic {
   }) async {
     final baseUrl = "https://music.youtube.com/";
     final fullQuery = {...query, "prettyPrint": "false"};
+    final apiKey = config['INNERTUBE_API_KEY'];
+    if (apiKey != null && apiKey.isNotEmpty) {
+      fullQuery["key"] = apiKey;
+    }
 
     final uri = Uri.parse(baseUrl).replace(
       path: "youtubei/${config['INNERTUBE_API_VERSION']}/$endpoint",
@@ -277,6 +281,8 @@ class YTMusic {
       _saveCookiesFromHeaders(uri, response.headers);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        // Decode JSON in a separate isolate to avoid blocking the main thread
+        // on large responses (e.g. playlists with hundreds of tracks).
         final jsonData = await Isolate.run(() => json.decode(response.body));
         return jsonData;
       } else {

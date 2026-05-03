@@ -31,7 +31,7 @@ class VideoParser {
     final columns = traverseList(item, [
       "flexColumns",
       "runs",
-    ]).expand((e) => e is List ? e : [e]).toList();
+    ]).expand((e) => e is Iterable ? e : [e]).toList();
 
     final title = columns.firstWhere(isTitle, orElse: () => null);
     final artist = columns.firstWhere(isArtist, orElse: () => columns[1]);
@@ -93,13 +93,12 @@ class VideoParser {
       "playNavigationEndpoint",
       "videoId",
     ]);
-    final videoId2 = RegExp(r"https:\/\/i\.ytimg\.com\/vi\/(.+)\/")
-        .firstMatch(
-          (traverseList(item, ["thumbnails"]).firstOrNull as Map?)?['url']
-                  as String? ??
-              '',
-        )
-        ?.group(1);
+    final videoId2 = () {
+      final firstThumb = traverseList(item, ["thumbnails"]).firstOrNull;
+      final url =
+          firstThumb is Map && firstThumb['url'] is String ? firstThumb['url'] as String : '';
+      return RegExp(r"https:\/\/i\.ytimg\.com\/vi\/(.+)\/").firstMatch(url)?.group(1);
+    }();
 
     if ((videoId1?.isEmpty ?? true) && videoId2 == null) {
       return null;
