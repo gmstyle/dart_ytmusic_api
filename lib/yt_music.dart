@@ -101,7 +101,7 @@ class YTMusic {
     config['INNERTUBE_CLIENT_NAME'] = 'WEB_REMIX';
     config['INNERTUBE_CONTEXT_CLIENT_NAME'] = '67';
     config['INNERTUBE_CLIENT_VERSION'] = '1.20260428.11.00';
-    config['INNERTUBE_API_KEY'] = '';
+    config['INNERTUBE_API_KEY'] = 'AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30';
     config['VISITOR_DATA'] = '';
     config['GL'] = 'US';
     config['HL'] = 'en';
@@ -715,7 +715,12 @@ class YTMusic {
 
     final album = AlbumParser.parse(data, albumId);
 
-    final artistSongs = await getArtistSongs(album.artist.artistId ?? '');
+    final artistId = album.artist.artistId;
+    if (artistId == null || artistId.isEmpty) {
+      return album;
+    }
+
+    final artistSongs = await getArtistSongs(artistId);
     final filteredSongs = artistSongs.where(
       (song) => album.songs
           .where(
