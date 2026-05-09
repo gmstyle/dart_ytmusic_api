@@ -317,15 +317,11 @@ class _ApiCallPageState extends State<ApiCallPage> {
                                   icon: const Icon(Icons.copy, size: 18),
                                   tooltip: 'Copia ID: $id',
                                   onPressed: () {
-                                    Clipboard.setData(
-                                      ClipboardData(text: id),
-                                    );
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
+                                    Clipboard.setData(ClipboardData(text: id));
+                                    ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text('Copiato: $id'),
-                                        duration:
-                                            const Duration(seconds: 2),
+                                        duration: const Duration(seconds: 2),
                                       ),
                                     );
                                   },
