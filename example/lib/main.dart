@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:dart_ytmusic_api/dart_ytmusic_api.dart';
 
 void main() {
@@ -302,19 +303,62 @@ class _ApiCallPageState extends State<ApiCallPage> {
                       itemCount: _results!.length,
                       separatorBuilder: (context, index) =>
                           const Divider(height: 1),
-                      itemBuilder: (_, i) => ListTile(
-                        dense: true,
-                        title: Text(
-                          _results![i],
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
+                      itemBuilder: (_, i) {
+                        final text = _results![i];
+                        final id = _extractCopyableId(text);
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            text,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          trailing: id != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy, size: 18),
+                                  tooltip: 'Copia ID: $id',
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                      ClipboardData(text: id),
+                                    );
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text('Copiato: $id'),
+                                        duration:
+                                            const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : null,
+                        );
+                      },
                     ),
             ),
         ],
       ),
     );
   }
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+/// Extracts a copyable ID from a result string.
+/// Handles two formats:
+///   "🎵 Name\n   Artist · <id>"  → returns the part after the last " · "
+///   "videoId: <id>"              → returns the part after ": " when it has no spaces
+String? _extractCopyableId(String text) {
+  final dotIdx = text.lastIndexOf(' · ');
+  if (dotIdx != -1) {
+    final id = text.substring(dotIdx + 3).trim();
+    if (id.isNotEmpty) return id;
+  }
+  final colonIdx = text.indexOf(': ');
+  if (colonIdx != -1) {
+    final value = text.substring(colonIdx + 2).trim();
+    if (value.isNotEmpty && !value.contains(' ')) return value;
+  }
+  return null;
 }
 
 // ─── Helper types ─────────────────────────────────────────────────────────────
