@@ -201,9 +201,9 @@ class YTMusic {
           continue;
         }
         if (inString) continue;
-        if (c == '{')
+        if (c == '{') {
           depth++;
-        else if (c == '}' && --depth == 0) {
+        } else if (c == '}' && --depth == 0) {
           end = i;
           break;
         }
