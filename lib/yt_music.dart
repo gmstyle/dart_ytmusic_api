@@ -27,12 +27,12 @@ class YTMusic {
     _client = http.Client();
     _baseHeaders = {
       "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
       "Accept":
           "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
       "sec-ch-ua":
-          '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+          '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
       "sec-ch-ua-mobile": "?0",
       "sec-ch-ua-platform": '"Linux"',
     };
@@ -100,8 +100,8 @@ class YTMusic {
     config['INNERTUBE_API_VERSION'] = 'v1';
     config['INNERTUBE_CLIENT_NAME'] = 'WEB_REMIX';
     config['INNERTUBE_CONTEXT_CLIENT_NAME'] = '67';
-    config['INNERTUBE_CLIENT_VERSION'] = '1.20260428.11.00';
-    config['INNERTUBE_API_KEY'] = 'AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30';
+    config['INNERTUBE_CLIENT_VERSION'] = '1.20260505.09.00';
+    config['INNERTUBE_API_KEY'] = '';
     config['VISITOR_DATA'] = '';
     config['GL'] = 'US';
     config['HL'] = 'en';
@@ -126,9 +126,12 @@ class YTMusic {
         'sec-fetch-site': 'none',
         'sec-fetch-user': '?1',
       };
-      if (cookieString.isNotEmpty) {
-        headers['cookie'] = cookieString;
-      }
+      // SOCS=CAI bypasses Google's cookie-consent gate, which otherwise
+      // causes YouTube Music to serve the "deprecated browser" fallback page.
+      const socsCookie = 'SOCS=CAI';
+      headers['cookie'] = cookieString.isNotEmpty
+          ? '$cookieString; $socsCookie'
+          : socsCookie;
       try {
         final response = await _client.get(uri, headers: headers);
         _saveCookiesFromHeaders(uri, response.headers);
@@ -146,34 +149,74 @@ class YTMusic {
       return; // fallbacks already set above
     }
 
-    void tryExtract(String key, String pattern) {
-      final val = _extractValue(html, pattern);
-      if (val.isNotEmpty) config[key] = val;
-    }
-
-    tryExtract('VISITOR_DATA', r'"VISITOR_DATA":"(.*?)"');
-    tryExtract(
+    final ytcfg = _parseAllYtcfgBlocks(html);
+    for (final key in const [
+      'VISITOR_DATA',
       'INNERTUBE_CONTEXT_CLIENT_NAME',
-      r'"INNERTUBE_CONTEXT_CLIENT_NAME":\s*(-?\d+|\"(.*?)\")',
-    );
-    tryExtract(
       'INNERTUBE_CLIENT_VERSION',
-      r'"INNERTUBE_CLIENT_VERSION":"(.*?)"',
-    );
-    tryExtract('DEVICE', r'"DEVICE":"(.*?)"');
-    tryExtract('PAGE_CL', r'"PAGE_CL":\s*(-?\d+|\"(.*?)\")');
-    tryExtract('PAGE_BUILD_LABEL', r'"PAGE_BUILD_LABEL":"(.*?)"');
-    tryExtract('INNERTUBE_API_KEY', r'"INNERTUBE_API_KEY":"(.*?)"');
-    tryExtract('INNERTUBE_API_VERSION', r'"INNERTUBE_API_VERSION":"(.*?)"');
-    tryExtract('INNERTUBE_CLIENT_NAME', r'"INNERTUBE_CLIENT_NAME":"(.*?)"');
-    tryExtract('GL', r'"GL":"(.*?)"');
-    tryExtract('HL', r'"HL":"(.*?)"');
+      'DEVICE',
+      'PAGE_CL',
+      'PAGE_BUILD_LABEL',
+      'INNERTUBE_API_KEY',
+      'INNERTUBE_API_VERSION',
+      'INNERTUBE_CLIENT_NAME',
+      'GL',
+      'HL',
+    ]) {
+      final v = ytcfg[key];
+      if (v != null) config[key] = v.toString();
+    }
   }
 
-  /// Extracts a value from HTML using a regular expression.
-  String _extractValue(String html, String regex) {
-    final match = RegExp(regex).firstMatch(html);
-    return match != null ? match.group(1)! : '';
+  /// Parses all `ytcfg.set({...})` blocks in [html] and merges their entries.
+  /// Blocks that are not valid JSON (e.g. single-quoted JS objects) are skipped.
+  Map<String, dynamic> _parseAllYtcfgBlocks(String html) {
+    final result = <String, dynamic>{};
+    const marker = 'ytcfg.set(';
+    var pos = 0;
+    while (true) {
+      final idx = html.indexOf(marker, pos);
+      if (idx == -1) break;
+      final start = idx + marker.length;
+      if (start >= html.length || html[start] != '{') {
+        pos = idx + 1;
+        continue;
+      }
+      var depth = 0;
+      var inString = false;
+      var escaped = false;
+      int? end;
+      for (var i = start; i < html.length; i++) {
+        final c = html[i];
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (c == '\\' && inString) {
+          escaped = true;
+          continue;
+        }
+        if (c == '"') {
+          inString = !inString;
+          continue;
+        }
+        if (inString) continue;
+        if (c == '{')
+          depth++;
+        else if (c == '}' && --depth == 0) {
+          end = i;
+          break;
+        }
+      }
+      if (end != null) {
+        try {
+          final block = json.decode(html.substring(start, end + 1));
+          if (block is Map<String, dynamic>) result.addAll(block);
+        } catch (_) {}
+      }
+      pos = (end ?? idx) + 1;
+    }
+    return result;
   }
 
   /// Constructs and performs an API request to the specified endpoint with optional body and query parameters.
