@@ -207,22 +207,24 @@ class ArtistDetailed implements SearchResult {
   @override
   final String type;
   final List<ThumbnailFull> thumbnails;
+  final String? monthlyListeners;
 
   ArtistDetailed({
     required this.artistId,
     required this.name,
     required this.type,
     required this.thumbnails,
+    this.monthlyListeners,
   });
 
-  // Construtor nomeado para criar uma ArtistDetailed a partir de um mapa
   ArtistDetailed.fromMap(Map<String, dynamic> map)
     : artistId = map['artistId'] as String,
       name = map['name'] as String,
       type = map['type'] as String,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      monthlyListeners = map['monthlyListeners'] as String?;
 }
 
 class AlbumDetailed implements SearchResult {

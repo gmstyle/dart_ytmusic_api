@@ -148,8 +148,17 @@ class ArtistParser {
       "runs",
     ]).expand((e) => e is List ? e : [e]).toList();
 
-    // No specific way to identify the title
     final title = columns[0];
+
+    String? monthlyListeners;
+    final flexColumns = item['flexColumns'] as List<dynamic>?;
+    if (flexColumns != null && flexColumns.length > 1) {
+      final secondCol = flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
+      final runs = secondCol?['text']?['runs'] as List<dynamic>?;
+      if (runs != null && runs.length > 2) {
+        monthlyListeners = runs[2]['text'] as String?;
+      }
+    }
 
     return ArtistDetailed(
       type: "ARTIST",
@@ -158,6 +167,7 @@ class ArtistParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      monthlyListeners: monthlyListeners,
     );
   }
 
