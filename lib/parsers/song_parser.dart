@@ -20,18 +20,34 @@ class SongParser {
           .toList(),
       formats: traverseList(data, ["streamingData", "formats"]),
       adaptiveFormats: traverseList(data, ["streamingData", "adaptiveFormats"]),
+      viewCount: int.tryParse(traverseString(data, ["videoDetails", "viewCount"]) ?? ''),
+      channelId: traverseString(data, ["videoDetails", "channelId"]),
+      publishDate: traverseString(data, ["microformat", "microformatDataRenderer", "publishDate"]),
+      category: traverseString(data, ["microformat", "microformatDataRenderer", "category"]),
     );
   }
 
   static SongDetailed parseSearchResult(dynamic item) {
     final columns = traverseList(item, ["flexColumns", "runs"]);
-    // It is not possible to identify the title and author
     final title = columns[0];
     final artist = columns.firstWhere(isArtist, orElse: () => columns[3]);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final duration = columns.firstWhere(
         (item) => isDuration(item) && item != title,
         orElse: () => null);
+
+    String? playCount;
+    String? albumId;
+    if (columns.length > 2) {
+      final playCountCol = columns[2];
+      if (playCountCol is Map) {
+        playCount = traverseString(playCountCol, ["text"]);
+      }
+    }
+
+    if (album != null) {
+      albumId = traverseString(album, ["browseId"]);
+    }
 
     return SongDetailed(
       type: "SONG",
@@ -44,13 +60,15 @@ class SongParser {
       album: album != null
           ? AlbumBasic(
               name: traverseString(album, ["text"]) ?? '',
-              albumId: traverseString(album, ["browseId"]) ?? '',
+              albumId: albumId ?? '',
             )
           : null,
       duration: Parser.parseDuration(duration?['text']),
       thumbnails: traverseList(item, ["thumbnails"])
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
+      playCount: playCount,
+      albumId: albumId,
     );
   }
 
@@ -91,6 +109,15 @@ class SongParser {
 
     final title = columns.firstWhere(isTitle, orElse: () => null);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
+    final playCountCol = columns.length > 2 ? columns[2] : null;
+    final playCount = playCountCol != null
+        ? traverseString(playCountCol, ["text"])
+        : null;
+
+    String? albumId;
+    if (album != null) {
+      albumId = traverseString(album, ["browseId"]);
+    }
 
     return SongDetailed(
       type: "SONG",
@@ -100,13 +127,15 @@ class SongParser {
       album: album != null
           ? AlbumBasic(
               name: traverseString(album, ["text"]) ?? '',
-              albumId: traverseString(album, ["browseId"]) ?? '',
+              albumId: albumId ?? '',
             )
           : null,
       duration: null,
       thumbnails: traverseList(item, ["thumbnails"])
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
+      playCount: playCount,
+      albumId: albumId,
     );
   }
 

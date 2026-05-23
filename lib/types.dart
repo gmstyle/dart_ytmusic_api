@@ -140,6 +140,8 @@ class SongDetailed implements SearchResult {
   final AlbumBasic? album;
   final int? duration;
   final List<ThumbnailFull> thumbnails;
+  final String? playCount;
+  final String? albumId;
 
   SongDetailed({
     required this.type,
@@ -149,9 +151,10 @@ class SongDetailed implements SearchResult {
     this.album,
     this.duration,
     required this.thumbnails,
+    this.playCount,
+    this.albumId,
   });
 
-  // Construtor nomeado para criar uma SongDetailed a partir de um mapa
   SongDetailed.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
@@ -161,7 +164,9 @@ class SongDetailed implements SearchResult {
       duration = map['duration'] as int?,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      playCount = map['playCount'] as String?,
+      albumId = map['albumId'] as String?;
 }
 
 class VideoDetailed implements SearchResult {
@@ -288,6 +293,10 @@ class SongFull implements SearchResult {
   final List<ThumbnailFull> thumbnails;
   final List<dynamic> formats;
   final List<dynamic> adaptiveFormats;
+  final int? viewCount;
+  final String? channelId;
+  final String? publishDate;
+  final String? category;
 
   SongFull({
     required this.type,
@@ -298,9 +307,12 @@ class SongFull implements SearchResult {
     required this.thumbnails,
     required this.formats,
     required this.adaptiveFormats,
+    this.viewCount,
+    this.channelId,
+    this.publishDate,
+    this.category,
   });
 
-  // Construtor nomeado para criar uma SongFull a partir de um mapa
   SongFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
@@ -311,7 +323,11 @@ class SongFull implements SearchResult {
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
       formats = map['formats'] as List<dynamic>,
-      adaptiveFormats = map['adaptiveFormats'] as List<dynamic>;
+      adaptiveFormats = map['adaptiveFormats'] as List<dynamic>,
+      viewCount = map['viewCount'] as int?,
+      channelId = map['channelId'] as String?,
+      publishDate = map['publishDate'] as String?,
+      category = map['category'] as String?;
 
   @override
   String toString() {

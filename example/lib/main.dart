@@ -378,7 +378,10 @@ final _api = YTMusic();
 Future<List<String>> _searchSongs(String q) async {
   final r = await _api.searchSongs(q);
   return r
-      .map((s) => '🎵 ${s.name}\n   ${s.artist.name} · ${s.videoId}')
+      .map(
+        (s) =>
+            '🎵 ${s.name}\n   ${s.artist.name} · ${s.videoId} · ${s.playCount ?? 'N/A'} · ${s.albumId ?? 'N/A'}',
+      )
       .toList();
 }
 
@@ -431,6 +434,10 @@ Future<List<String>> _getSong(String id) async {
     'Artist: ${s.artist.name}',
     'Duration: ${s.duration}s',
     'videoId: ${s.videoId}',
+    'viewCount: ${s.viewCount ?? 'N/A'}',
+    'channelId: ${s.channelId ?? 'N/A'}',
+    'publishDate: ${s.publishDate ?? 'N/A'}',
+    'category: ${s.category ?? 'N/A'}',
   ];
 }
 
