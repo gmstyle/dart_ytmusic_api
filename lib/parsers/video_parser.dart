@@ -24,6 +24,11 @@ class VideoParser {
       familySafe: traverse(data, ["familySafe"]),
       paid: traverse(data, ["paid"]),
       tags: traverseList(data, ["tags"]).whereType<String>().toList(),
+      viewCount: int.tryParse(traverseString(data, ["videoDetails", "viewCount"]) ?? ''),
+      publishDate: traverseString(data, ["microformat", "microformatDataRenderer", "publishDate"]),
+      category: traverseString(data, ["microformat", "microformatDataRenderer", "category"]),
+      uploadDate: traverseString(data, ["microformat", "microformatDataRenderer", "uploadDate"]),
+      musicVideoType: traverseString(data, ["videoDetails", "musicVideoType"]),
     );
   }
 

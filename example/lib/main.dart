@@ -380,7 +380,7 @@ Future<List<String>> _searchSongs(String q) async {
   return r
       .map(
         (s) =>
-            '🎵 ${s.name}\n   ${s.artist.name} · ${s.videoId} · ${s.playCount ?? 'N/A'} · ${s.albumId ?? 'N/A'}',
+            '🎵 ${s.name}\n   ${s.artist.name} - ${s.videoId} - ${s.playCount} - ${s.albumId}',
       )
       .toList();
 }
@@ -388,13 +388,21 @@ Future<List<String>> _searchSongs(String q) async {
 Future<List<String>> _searchVideos(String q) async {
   final r = await _api.searchVideos(q);
   return r
-      .map((v) => '🎬 ${v.name}\n   ${v.artist.name} · ${v.videoId}')
+      .map(
+        (v) =>
+            '🎬 ${v.name}\n   ${v.artist.name} - ${v.videoId} - ${v.viewCount ?? 'N/A'}',
+      )
       .toList();
 }
 
 Future<List<String>> _searchArtists(String q) async {
   final r = await _api.searchArtists(q);
-  return r.map((a) => '👤 ${a.name}\n   ${a.artistId}').toList();
+  return r
+      .map(
+        (a) =>
+            '👤 ${a.name}\n   ${a.artistId} - ${a.monthlyListeners ?? 'N/A'}',
+      )
+      .toList();
 }
 
 Future<List<String>> _searchAlbums(String q) async {
@@ -448,6 +456,11 @@ Future<List<String>> _getVideo(String id) async {
     'Artist: ${v.artist.name}',
     'Duration: ${v.duration}s',
     'videoId: ${v.videoId}',
+    'viewCount: ${v.viewCount ?? 'N/A'}',
+    'publishDate: ${v.publishDate ?? 'N/A'}',
+    'category: ${v.category ?? 'N/A'}',
+    'uploadDate: ${v.uploadDate ?? 'N/A'}',
+    'musicVideoType: ${v.musicVideoType ?? 'N/A'}',
   ];
 }
 

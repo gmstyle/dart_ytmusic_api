@@ -350,6 +350,11 @@ class VideoFull {
   final bool familySafe;
   final bool paid;
   final List<String> tags;
+  final int? viewCount;
+  final String? publishDate;
+  final String? category;
+  final String? uploadDate;
+  final String? musicVideoType;
 
   VideoFull({
     required this.type,
@@ -362,9 +367,13 @@ class VideoFull {
     required this.familySafe,
     required this.paid,
     required this.tags,
+    this.viewCount,
+    this.publishDate,
+    this.category,
+    this.uploadDate,
+    this.musicVideoType,
   });
 
-  // Construtor nomeado para criar uma VideoFull a partir de um mapa
   VideoFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
@@ -377,7 +386,12 @@ class VideoFull {
       unlisted = map['unlisted'] as bool,
       familySafe = map['familySafe'] as bool,
       paid = map['paid'] as bool,
-      tags = (map['tags'] as List).cast<String>();
+      tags = (map['tags'] as List).cast<String>(),
+      viewCount = map['viewCount'] as int?,
+      publishDate = map['publishDate'] as String?,
+      category = map['category'] as String?,
+      uploadDate = map['uploadDate'] as String?,
+      musicVideoType = map['musicVideoType'] as String?;
 }
 
 class ArtistFull implements SearchResult {
