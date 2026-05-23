@@ -472,9 +472,14 @@ Future<List<String>> _getArtist(String id) async {
   return [
     'Name: ${a.name}',
     'artistId: ${a.artistId}',
+    'channelId: ${a.channelId ?? 'N/A'}',
     'Top songs: ${a.topSongs.length}',
     'Albums: ${a.topAlbums.length}',
     'Singles: ${a.topSingles.length}',
+    'Subscribers: ${a.subscriberCount ?? 'N/A'}',
+    'Description: ${a.description ?? 'N/A'}',
+    'Monthly Listeners: ${a.monthlyListeners ?? 'N/A'}',
+    'Total views: ${a.totalViews ?? 'N/A'}',
   ];
 }
 

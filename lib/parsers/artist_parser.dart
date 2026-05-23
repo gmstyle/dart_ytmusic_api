@@ -16,68 +16,137 @@ class ArtistParser {
       name: artistBasic.name,
       type: "ARTIST",
       artistId: artistId,
-      thumbnails: traverseList(data, ["header", "thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(data, [
+        "header",
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       topSongs: traverseList(data, ["musicShelfRenderer", "contents"])
           .map((item) => SongParser.parseArtistTopSong(item, artistBasic))
           .toList(),
-      topAlbums: (traverseList(data, ["musicCarouselShelfRenderer"]).isEmpty
-              ? <AlbumDetailed>[]
-              : (traverseList(data, ["musicCarouselShelfRenderer"])
-                          .elementAt(0)?['contents'] as List<dynamic>?)
-                      ?.map((item) =>
-                          AlbumParser.parseArtistTopAlbum(item, artistBasic))
-                      .toList() ??
-                  <AlbumDetailed>[])
-          .where(
-            (album) => album.albumId.isNotEmpty,
-          )
-          .toList(),
-      topSingles: (traverseList(data, ["musicCarouselShelfRenderer"]).length < 2
-              ? <AlbumDetailed>[]
-              : (traverseList(data, ["musicCarouselShelfRenderer"])
-                          .elementAt(1)?['contents'] as List<dynamic>?)
-                      ?.map((item) =>
-                          AlbumParser.parseArtistTopAlbum(item, artistBasic))
-                      .toList() ??
-                  <AlbumDetailed>[])
-          .where(
-            (single) =>
-                single.albumId.isNotEmpty && single.albumId.startsWith('M'),
-          )
-          .toList(),
+      topAlbums:
+          (traverseList(data, ["musicCarouselShelfRenderer"]).isEmpty
+                  ? <AlbumDetailed>[]
+                  : (traverseList(data, [
+                                  "musicCarouselShelfRenderer",
+                                ]).elementAt(0)?['contents']
+                                as List<dynamic>?)
+                            ?.map(
+                              (item) => AlbumParser.parseArtistTopAlbum(
+                                item,
+                                artistBasic,
+                              ),
+                            )
+                            .toList() ??
+                        <AlbumDetailed>[])
+              .where((album) => album.albumId.isNotEmpty)
+              .toList(),
+      topSingles:
+          (traverseList(data, ["musicCarouselShelfRenderer"]).length < 2
+                  ? <AlbumDetailed>[]
+                  : (traverseList(data, [
+                                  "musicCarouselShelfRenderer",
+                                ]).elementAt(1)?['contents']
+                                as List<dynamic>?)
+                            ?.map(
+                              (item) => AlbumParser.parseArtistTopAlbum(
+                                item,
+                                artistBasic,
+                              ),
+                            )
+                            .toList() ??
+                        <AlbumDetailed>[])
+              .where(
+                (single) =>
+                    single.albumId.isNotEmpty && single.albumId.startsWith('M'),
+              )
+              .toList(),
       topVideos: traverseList(data, ["musicCarouselShelfRenderer"]).length < 3
           ? <VideoDetailed>[]
-          : (traverseList(data, ["musicCarouselShelfRenderer"])
-                      .elementAt(2)?['contents'] as List<dynamic>?)
-                  ?.map((item) =>
-                      VideoParser.parseArtistTopVideo(item, artistBasic))
-                  .toList() ??
-              <VideoDetailed>[],
+          : (traverseList(data, [
+                          "musicCarouselShelfRenderer",
+                        ]).elementAt(2)?['contents']
+                        as List<dynamic>?)
+                    ?.map(
+                      (item) =>
+                          VideoParser.parseArtistTopVideo(item, artistBasic),
+                    )
+                    .toList() ??
+                <VideoDetailed>[],
       featuredOn: traverseList(data, ["musicCarouselShelfRenderer"]).length < 4
           ? <PlaylistDetailed>[]
-          : (traverseList(data, ["musicCarouselShelfRenderer"])
-                      .elementAt(3)?['contents'] as List<dynamic>?)
-                  ?.map((item) =>
-                      PlaylistParser.parseArtistFeaturedOn(item, artistBasic))
-                  .toList() ??
-              <PlaylistDetailed>[],
+          : (traverseList(data, [
+                          "musicCarouselShelfRenderer",
+                        ]).elementAt(3)?['contents']
+                        as List<dynamic>?)
+                    ?.map(
+                      (item) => PlaylistParser.parseArtistFeaturedOn(
+                        item,
+                        artistBasic,
+                      ),
+                    )
+                    .toList() ??
+                <PlaylistDetailed>[],
       similarArtists:
           traverseList(data, ["musicCarouselShelfRenderer"]).length < 5
-              ? <ArtistDetailed>[]
-              : (traverseList(data, ["musicCarouselShelfRenderer"])
-                          .elementAt(4)?['contents'] as List<dynamic>?)
-                      ?.map((item) => parseSimilarArtists(item))
-                      .toList() ??
-                  <ArtistDetailed>[],
+          ? <ArtistDetailed>[]
+          : (traverseList(data, [
+                          "musicCarouselShelfRenderer",
+                        ]).elementAt(4)?['contents']
+                        as List<dynamic>?)
+                    ?.map((item) => parseSimilarArtists(item))
+                    .toList() ??
+                <ArtistDetailed>[],
+      subscriberCount: traverseString(data, [
+        "header",
+        "subscriptionButton",
+        "subscribeButtonRenderer",
+        "subscriberCountText",
+        "text",
+      ]),
+      monthlyListeners: traverseString(data, [
+        "header",
+        "monthlyListenerCount",
+        "text",
+      ]),
+      totalViews: _extractTotalViews(data),
+      description: _extractDescription(data),
+      channelId: traverseString(data, [
+        "header",
+        "subscriptionButton",
+        "subscribeButtonRenderer",
+        "channelId",
+      ]),
     );
   }
 
+  static String? _extractTotalViews(dynamic data) {
+    final descriptionShelf = traverseList(data, [
+      "musicDescriptionShelfRenderer",
+    ]);
+    if (descriptionShelf.isEmpty) return null;
+    final subheader = traverseString(descriptionShelf.first, [
+      "subheader",
+      "text",
+    ]);
+    return subheader;
+  }
+
+  static String? _extractDescription(dynamic data) {
+    final descriptionShelf = traverseList(data, [
+      "musicDescriptionShelfRenderer",
+    ]);
+    if (descriptionShelf.isEmpty) return null;
+    final runs =
+        descriptionShelf.first['description']?['runs'] as List<dynamic>?;
+    if (runs == null) return null;
+    return runs.map((r) => r['text']?.toString() ?? '').join();
+  }
+
   static ArtistDetailed parseSearchResult(dynamic item) {
-    final columns = traverseList(item, ["flexColumns", "runs"])
-        .expand((e) => e is List ? e : [e])
-        .toList();
+    final columns = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).expand((e) => e is List ? e : [e]).toList();
 
     // No specific way to identify the title
     final title = columns[0];
@@ -86,9 +155,9 @@ class ArtistParser {
       type: "ARTIST",
       artistId: traverseString(item, ["browseId"]) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
@@ -97,9 +166,9 @@ class ArtistParser {
       type: "ARTIST",
       artistId: traverseString(item, ["browseId"]) ?? '',
       name: traverseString(item, ["runs", "text"]) ?? '',
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 }

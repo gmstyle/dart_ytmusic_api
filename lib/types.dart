@@ -3,10 +3,7 @@ class ClientRequestOptions {
   final String? clientName;
   final String? clientVersion;
 
-  ClientRequestOptions({
-    this.clientName,
-    this.clientVersion,
-  });
+  ClientRequestOptions({this.clientName, this.clientVersion});
 }
 
 class CueRangeMetadata {
@@ -15,9 +12,7 @@ class CueRangeMetadata {
   CueRangeMetadata({required this.id});
 
   factory CueRangeMetadata.fromMap(Map<String, dynamic> json) {
-    return CueRangeMetadata(
-      id: json['id'] as String,
-    );
+    return CueRangeMetadata(id: json['id'] as String);
   }
 
   @override
@@ -39,8 +34,9 @@ class CueRange {
     return CueRange(
       startTimeMilliseconds: int.parse(json['startTimeMilliseconds'] as String),
       endTimeMilliseconds: int.parse(json['endTimeMilliseconds'] as String),
-      metadata:
-          CueRangeMetadata.fromMap(json['metadata'] as Map<String, dynamic>),
+      metadata: CueRangeMetadata.fromMap(
+        json['metadata'] as Map<String, dynamic>,
+      ),
     );
   }
 
@@ -73,10 +69,7 @@ class TimedLyricsRes {
   final List<TimedLyricsData> timedLyricsData;
   final String sourceMessage;
 
-  TimedLyricsRes({
-    required this.timedLyricsData,
-    required this.sourceMessage,
-  });
+  TimedLyricsRes({required this.timedLyricsData, required this.sourceMessage});
 
   factory TimedLyricsRes.fromMap(Map<String, dynamic> map) {
     return TimedLyricsRes(
@@ -99,32 +92,25 @@ class ThumbnailFull {
   final int width;
   final int height;
 
-  ThumbnailFull({
-    required this.url,
-    required this.width,
-    required this.height,
-  });
+  ThumbnailFull({required this.url, required this.width, required this.height});
 
   // Construtor nomeado para criar uma ThumbnailFull a partir de um mapa
   ThumbnailFull.fromMap(Map<String, dynamic> map)
-      : url = map['url'] as String,
-        width = map['width'] as int,
-        height = map['height'] as int;
+    : url = map['url'] as String,
+      width = map['width'] as int,
+      height = map['height'] as int;
 }
 
 class ArtistBasic {
   final String? artistId;
   final String name;
 
-  ArtistBasic({
-    this.artistId,
-    required this.name,
-  });
+  ArtistBasic({this.artistId, required this.name});
 
   // Construtor nomeado para criar uma ArtistBasic a partir de um mapa
   ArtistBasic.fromMap(Map<String, dynamic> map)
-      : artistId = map['artistId'] as String?,
-        name = map['name'] as String;
+    : artistId = map['artistId'] as String?,
+      name = map['name'] as String;
 
   @override
   String toString() => 'ArtistBasic(artistId: $artistId, name: $name)';
@@ -134,15 +120,12 @@ class AlbumBasic {
   final String albumId;
   final String name;
 
-  AlbumBasic({
-    required this.albumId,
-    required this.name,
-  });
+  AlbumBasic({required this.albumId, required this.name});
 
   // Construtor nomeado para criar uma AlbumBasic a partir de um mapa
   AlbumBasic.fromMap(Map<String, dynamic> map)
-      : albumId = map['albumId'] as String,
-        name = map['name'] as String;
+    : albumId = map['albumId'] as String,
+      name = map['name'] as String;
 
   @override
   String toString() => 'AlbumBasic(albumId: $albumId, name: $name)';
@@ -170,15 +153,15 @@ class SongDetailed implements SearchResult {
 
   // Construtor nomeado para criar uma SongDetailed a partir de um mapa
   SongDetailed.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        videoId = map['videoId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
-        duration = map['duration'] as int?,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      videoId = map['videoId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
+      duration = map['duration'] as int?,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 }
 
 class VideoDetailed implements SearchResult {
@@ -201,14 +184,14 @@ class VideoDetailed implements SearchResult {
 
   // Construtor nomeado para criar uma VideoDetailed a partir de um mapa
   VideoDetailed.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        videoId = map['videoId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        duration = map['duration'] as int?,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      videoId = map['videoId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      duration = map['duration'] as int?,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 }
 
 class ArtistDetailed implements SearchResult {
@@ -227,12 +210,12 @@ class ArtistDetailed implements SearchResult {
 
   // Construtor nomeado para criar uma ArtistDetailed a partir de um mapa
   ArtistDetailed.fromMap(Map<String, dynamic> map)
-      : artistId = map['artistId'] as String,
-        name = map['name'] as String,
-        type = map['type'] as String,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : artistId = map['artistId'] as String,
+      name = map['name'] as String,
+      type = map['type'] as String,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 }
 
 class AlbumDetailed implements SearchResult {
@@ -257,15 +240,15 @@ class AlbumDetailed implements SearchResult {
 
   // Construtor nomeado para criar uma AlbumDetailed a partir de um mapa
   AlbumDetailed.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        albumId = map['albumId'] as String,
-        playlistId = map['playlistId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        year = map['year'] as int?,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      albumId = map['albumId'] as String,
+      playlistId = map['playlistId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      year = map['year'] as int?,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 }
 
 class PlaylistDetailed implements SearchResult {
@@ -286,13 +269,13 @@ class PlaylistDetailed implements SearchResult {
 
   // Construtor nomeado para criar uma PlaylistDetailed a partir de um mapa
   PlaylistDetailed.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        playlistId = map['playlistId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      playlistId = map['playlistId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 }
 
 class SongFull implements SearchResult {
@@ -319,16 +302,16 @@ class SongFull implements SearchResult {
 
   // Construtor nomeado para criar uma SongFull a partir de um mapa
   SongFull.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        videoId = map['videoId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        duration = map['duration'] as int,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList(),
-        formats = map['formats'] as List<dynamic>,
-        adaptiveFormats = map['adaptiveFormats'] as List<dynamic>;
+    : type = map['type'] as String,
+      videoId = map['videoId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      duration = map['duration'] as int,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList(),
+      formats = map['formats'] as List<dynamic>,
+      adaptiveFormats = map['adaptiveFormats'] as List<dynamic>;
 
   @override
   String toString() {
@@ -363,18 +346,18 @@ class VideoFull {
 
   // Construtor nomeado para criar uma VideoFull a partir de um mapa
   VideoFull.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        videoId = map['videoId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        duration = map['duration'] as int,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList(),
-        unlisted = map['unlisted'] as bool,
-        familySafe = map['familySafe'] as bool,
-        paid = map['paid'] as bool,
-        tags = (map['tags'] as List).cast<String>();
+    : type = map['type'] as String,
+      videoId = map['videoId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      duration = map['duration'] as int,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList(),
+      unlisted = map['unlisted'] as bool,
+      familySafe = map['familySafe'] as bool,
+      paid = map['paid'] as bool,
+      tags = (map['tags'] as List).cast<String>();
 }
 
 class ArtistFull implements SearchResult {
@@ -389,6 +372,11 @@ class ArtistFull implements SearchResult {
   final List<VideoDetailed> topVideos;
   final List<PlaylistDetailed> featuredOn;
   final List<ArtistDetailed> similarArtists;
+  final String? subscriberCount;
+  final String? monthlyListeners;
+  final String? totalViews;
+  final String? description;
+  final String? channelId;
 
   ArtistFull({
     required this.artistId,
@@ -401,34 +389,43 @@ class ArtistFull implements SearchResult {
     required this.topVideos,
     required this.featuredOn,
     required this.similarArtists,
+    this.subscriberCount,
+    this.monthlyListeners,
+    this.totalViews,
+    this.description,
+    this.channelId,
   });
 
-  // Construtor nomeado para criar uma ArtistFull a partir de um mapa
   ArtistFull.fromMap(Map<String, dynamic> map)
-      : artistId = map['artistId'] as String,
-        name = map['name'] as String,
-        type = map['type'] as String,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList(),
-        topSongs = (map['topSongs'] as List)
-            .map((item) => SongDetailed.fromMap(item))
-            .toList(),
-        topAlbums = (map['topAlbums'] as List)
-            .map((item) => AlbumDetailed.fromMap(item))
-            .toList(),
-        topSingles = (map['topSingles'] as List)
-            .map((item) => AlbumDetailed.fromMap(item))
-            .toList(),
-        topVideos = (map['topVideos'] as List)
-            .map((item) => VideoDetailed.fromMap(item))
-            .toList(),
-        featuredOn = (map['featuredOn'] as List)
-            .map((item) => PlaylistDetailed.fromMap(item))
-            .toList(),
-        similarArtists = (map['similarArtists'] as List)
+    : artistId = map['artistId'] as String,
+      name = map['name'] as String,
+      type = map['type'] as String,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList(),
+      topSongs = (map['topSongs'] as List)
+          .map((item) => SongDetailed.fromMap(item))
+          .toList(),
+      topAlbums = (map['topAlbums'] as List)
+          .map((item) => AlbumDetailed.fromMap(item))
+          .toList(),
+      topSingles = (map['topSingles'] as List)
+          .map((item) => AlbumDetailed.fromMap(item))
+          .toList(),
+      topVideos = (map['topVideos'] as List)
+          .map((item) => VideoDetailed.fromMap(item))
+          .toList(),
+      featuredOn = (map['featuredOn'] as List)
+          .map((item) => PlaylistDetailed.fromMap(item))
+          .toList(),
+similarArtists = (map['similarArtists'] as List)
             .map((item) => ArtistDetailed.fromMap(item))
-            .toList();
+            .toList(),
+        subscriberCount = map['subscriberCount'] as String?,
+        monthlyListeners = map['monthlyListeners'] as String?,
+        totalViews = map['totalViews'] as String?,
+        description = map['description'] as String?,
+        channelId = map['channelId'] as String?;
 }
 
 class AlbumFull {
@@ -454,18 +451,18 @@ class AlbumFull {
 
   // Construtor nomeado para criar uma AlbumFull a partir de um mapa
   AlbumFull.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        albumId = map['albumId'] as String,
-        playlistId = map['playlistId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        year = map['year'] as int?,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList(),
-        songs = (map['songs'] as List)
-            .map((item) => SongDetailed.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      albumId = map['albumId'] as String,
+      playlistId = map['playlistId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      year = map['year'] as int?,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList(),
+      songs = (map['songs'] as List)
+          .map((item) => SongDetailed.fromMap(item))
+          .toList();
 }
 
 class PlaylistFull {
@@ -487,14 +484,14 @@ class PlaylistFull {
 
   // Construtor nomeado para criar uma PlaylistFull a partir de um mapa
   PlaylistFull.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        playlistId = map['playlistId'] as String,
-        name = map['name'] as String,
-        artist = ArtistBasic.fromMap(map['artist']),
-        videoCount = map['videoCount'] as int,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      playlistId = map['playlistId'] as String,
+      name = map['name'] as String,
+      artist = ArtistBasic.fromMap(map['artist']),
+      videoCount = map['videoCount'] as int,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 }
 
 // SearchResult é uma union de vários tipos, então é uma interface
@@ -507,9 +504,7 @@ class SongDetailedSearchResult implements SearchResult {
   final String type = 'SONG';
   final SongDetailed songDetailed;
 
-  SongDetailedSearchResult({
-    required this.songDetailed,
-  });
+  SongDetailedSearchResult({required this.songDetailed});
 }
 
 class VideoDetailedSearchResult implements SearchResult {
@@ -517,9 +512,7 @@ class VideoDetailedSearchResult implements SearchResult {
   final String type = 'VIDEO';
   final VideoDetailed videoDetailed;
 
-  VideoDetailedSearchResult({
-    required this.videoDetailed,
-  });
+  VideoDetailedSearchResult({required this.videoDetailed});
 }
 
 class AlbumDetailedSearchResult implements SearchResult {
@@ -527,9 +520,7 @@ class AlbumDetailedSearchResult implements SearchResult {
   final String type = 'ALBUM';
   final AlbumDetailed albumDetailed;
 
-  AlbumDetailedSearchResult({
-    required this.albumDetailed,
-  });
+  AlbumDetailedSearchResult({required this.albumDetailed});
 }
 
 class ArtistDetailedSearchResult implements SearchResult {
@@ -537,9 +528,7 @@ class ArtistDetailedSearchResult implements SearchResult {
   final String type = 'ARTIST';
   final ArtistDetailed artistDetailed;
 
-  ArtistDetailedSearchResult({
-    required this.artistDetailed,
-  });
+  ArtistDetailedSearchResult({required this.artistDetailed});
 }
 
 class PlaylistDetailedSearchResult implements SearchResult {
@@ -547,18 +536,14 @@ class PlaylistDetailedSearchResult implements SearchResult {
   final String type = 'PLAYLIST';
   final PlaylistDetailed playlistDetailed;
 
-  PlaylistDetailedSearchResult({
-    required this.playlistDetailed,
-  });
+  PlaylistDetailedSearchResult({required this.playlistDetailed});
 }
 
 // Factory para criar um SearchResult a partir de um mapa
 SearchResult createSearchResultFromMap(Map<String, dynamic> map) {
   switch (map['type']) {
     case 'SONG':
-      return SongDetailedSearchResult(
-        songDetailed: SongDetailed.fromMap(map),
-      );
+      return SongDetailedSearchResult(songDetailed: SongDetailed.fromMap(map));
     case 'VIDEO':
       return VideoDetailedSearchResult(
         videoDetailed: VideoDetailed.fromMap(map),
@@ -601,15 +586,15 @@ class UpNextsDetails {
 
   // Construtor nomeado para criar uma UpNextsDetails a partir de um mapa
   UpNextsDetails.fromMap(Map<String, dynamic> map)
-      : type = map['type'] as String,
-        videoId = map['videoId'] as String,
-        title = map['title'] as String,
-        artists = ArtistBasic.fromMap(map['artists']),
-        album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
-        duration = map['duration'] as int,
-        thumbnails = (map['thumbnails'] as List)
-            .map((item) => ThumbnailFull.fromMap(item))
-            .toList();
+    : type = map['type'] as String,
+      videoId = map['videoId'] as String,
+      title = map['title'] as String,
+      artists = ArtistBasic.fromMap(map['artists']),
+      album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
+      duration = map['duration'] as int,
+      thumbnails = (map['thumbnails'] as List)
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList();
 
   @override
   String toString() {
@@ -621,13 +606,10 @@ class HomeSection {
   final String title;
   final List<dynamic> contents;
 
-  HomeSection({
-    required this.title,
-    required this.contents,
-  });
+  HomeSection({required this.title, required this.contents});
 
   // Construtor nomeado para criar uma HomeSection a partir de um mapa
   HomeSection.fromMap(Map<String, dynamic> map)
-      : title = map['title'] as String,
-        contents = map['contents'] as List<dynamic>;
+    : title = map['title'] as String,
+      contents = map['contents'] as List<dynamic>;
 }
