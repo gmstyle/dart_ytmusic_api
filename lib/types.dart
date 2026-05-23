@@ -177,6 +177,7 @@ class VideoDetailed implements SearchResult {
   final ArtistBasic artist;
   final int? duration;
   final List<ThumbnailFull> thumbnails;
+  final String? viewCount;
 
   VideoDetailed({
     required this.type,
@@ -185,9 +186,9 @@ class VideoDetailed implements SearchResult {
     required this.artist,
     this.duration,
     required this.thumbnails,
+    this.viewCount,
   });
 
-  // Construtor nomeado para criar uma VideoDetailed a partir de um mapa
   VideoDetailed.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
@@ -196,7 +197,8 @@ class VideoDetailed implements SearchResult {
       duration = map['duration'] as int?,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      viewCount = map['viewCount'] as String?;
 }
 
 class ArtistDetailed implements SearchResult {

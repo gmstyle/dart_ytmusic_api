@@ -37,6 +37,16 @@ class VideoParser {
     final artist = columns.firstWhere(isArtist, orElse: () => columns[1]);
     final duration = columns.firstWhere(isDuration, orElse: () => null);
 
+    String? viewCount;
+    final flexColumns = item['flexColumns'] as List<dynamic>?;
+    if (flexColumns != null && flexColumns.length > 1) {
+      final secondCol = flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
+      final runs = secondCol?['text']?['runs'] as List<dynamic>?;
+      if (runs != null && runs.length > 2) {
+        viewCount = runs[2]['text'] as String?;
+      }
+    }
+
     return VideoDetailed(
       type: "VIDEO",
       videoId:
@@ -50,6 +60,7 @@ class VideoParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      viewCount: viewCount,
     );
   }
 

@@ -28,7 +28,9 @@ class SongParser {
   }
 
   static SongDetailed parseSearchResult(dynamic item) {
-    final columns = traverseList(item, ["flexColumns", "runs"]);
+    final columns = traverseList(item, ["flexColumns", "runs"])
+        .expand((e) => e is Iterable ? e : [e]).toList();
+
     final title = columns[0];
     final artist = columns.firstWhere(isArtist, orElse: () => columns[3]);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
@@ -38,10 +40,12 @@ class SongParser {
 
     String? playCount;
     String? albumId;
-    if (columns.length > 2) {
-      final playCountCol = columns[2];
-      if (playCountCol is Map) {
-        playCount = traverseString(playCountCol, ["text"]);
+    final flexColumns = item['flexColumns'] as List<dynamic>?;
+    if (flexColumns != null && flexColumns.length > 2) {
+      final thirdCol = flexColumns[2]['musicResponsiveListItemFlexColumnRenderer'];
+      final runs = thirdCol?['text']?['runs'] as List<dynamic>?;
+      if (runs != null && runs.isNotEmpty) {
+        playCount = runs[0]['text'] as String?;
       }
     }
 
