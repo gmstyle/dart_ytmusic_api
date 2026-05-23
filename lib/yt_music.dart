@@ -620,8 +620,6 @@ class YTMusic {
   /// Retrieves detailed information about an artist given its artist ID.
   Future<ArtistFull> getArtist(String artistId) async {
     final data = await constructRequest("browse", body: {"browseId": artistId});
-    print(jsonEncode(data));
-
     return ArtistParser.parse(data, artistId);
   }
 
