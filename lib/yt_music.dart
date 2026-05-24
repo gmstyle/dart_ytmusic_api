@@ -865,9 +865,4 @@ class YTMusic {
 
     return sections.map(Parser.parseHomeSection).toList();
   }
-
-  Future<void> _saveRawResponse(Map<String, dynamic> data) async {
-    final file = File('raw.txt');
-    await file.writeAsString(jsonEncode(data));
-  }
 }
