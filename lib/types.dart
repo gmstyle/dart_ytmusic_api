@@ -471,6 +471,7 @@ class AlbumFull {
   final int? year;
   final List<ThumbnailFull> thumbnails;
   List<SongDetailed> songs;
+  final List<AlbumDetailed> relatedReleases;
 
   AlbumFull({
     required this.type,
@@ -481,9 +482,9 @@ class AlbumFull {
     this.year,
     required this.thumbnails,
     required this.songs,
+    required this.relatedReleases,
   });
 
-  // Construtor nomeado para criar uma AlbumFull a partir de um mapa
   AlbumFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       albumId = map['albumId'] as String,
@@ -496,7 +497,12 @@ class AlbumFull {
           .toList(),
       songs = (map['songs'] as List)
           .map((item) => SongDetailed.fromMap(item))
-          .toList();
+          .toList(),
+      relatedReleases = map['relatedReleases'] != null
+          ? (map['relatedReleases'] as List)
+              .map((item) => AlbumDetailed.fromMap(item))
+              .toList()
+          : [];
 }
 
 class PlaylistFull {

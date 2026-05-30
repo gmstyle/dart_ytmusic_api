@@ -41,6 +41,51 @@ class AlbumParser {
             ),
           )
           .toList(),
+      relatedReleases: _parseRelatedReleases(data),
+    );
+  }
+
+  static List<AlbumDetailed> _parseRelatedReleases(dynamic data) {
+    final carousels = traverseList(data, ["musicCarouselShelfRenderer"]);
+    final result = <AlbumDetailed>[];
+    for (final carousel in carousels) {
+      final contents = carousel['contents'];
+      if (contents is! List) continue;
+      for (final item in contents) {
+        final renderer = item['musicTwoRowItemRenderer'];
+        if (renderer != null) {
+          result.add(parseRelatedRelease(renderer));
+        }
+      }
+    }
+    return result;
+  }
+
+  static AlbumDetailed parseRelatedRelease(dynamic item) {
+    final subtitleRuns = traverseList(item, ["subtitle", "runs"])
+        .expand((e) => e is List ? e : [e])
+        .toList();
+    final artistRun = subtitleRuns.firstWhere(
+      isArtist,
+      orElse: () => null,
+    );
+
+    final albumId = traverseString(item, ["navigationEndpoint", "browseId"]) ?? '';
+    final playlistId = traverseString(item, ["watchPlaylistEndpoint", "playlistId"]) ?? '';
+
+    return AlbumDetailed(
+      type: "ALBUM",
+      albumId: albumId,
+      playlistId: playlistId,
+      name: traverseString(item, ["title", "text"]) ?? '',
+      artist: ArtistBasic(
+        name: traverseString(artistRun, ["text"]) ?? '',
+        artistId: traverseString(artistRun, ["browseId"]),
+      ),
+      year: null,
+      thumbnails: traverseList(item, ["thumbnails"])
+          .map((item) => ThumbnailFull.fromMap(item))
+          .toList(),
     );
   }
 
