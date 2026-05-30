@@ -782,7 +782,7 @@ class YTMusic {
   /// Retrieves detailed information about an album given its album ID.
   Future<AlbumFull> getAlbum(String albumId) async {
     final data = await constructRequest("browse", body: {"browseId": albumId});
-    _writeRawResponse('getAlbum', data);
+    //_writeRawResponse('getAlbum', data);
 
     return AlbumParser.parse(data, albumId);
   }
