@@ -784,35 +784,7 @@ class YTMusic {
     final data = await constructRequest("browse", body: {"browseId": albumId});
     _writeRawResponse('getAlbum', data);
 
-    final album = AlbumParser.parse(data, albumId);
-
-    final artistId = album.artist.artistId;
-    if (artistId == null || artistId.isEmpty) {
-      return album;
-    }
-
-    final artistSongs = await getArtistSongs(artistId);
-    final filteredSongs = artistSongs.where(
-      (song) => album.songs
-          .where(
-            (item) =>
-                '${song.album?.name}-${song.name}' ==
-                '${item.album?.name}-${item.name}',
-          )
-          .isNotEmpty,
-    );
-
-    final songsThatArentInArtist = album.songs.where(
-      (item) => artistSongs
-          .where(
-            (song) =>
-                '${song.album?.name}-${song.name}' ==
-                '${item.album?.name}-${item.name}',
-          )
-          .isEmpty,
-    );
-
-    return album..songs = [...filteredSongs, ...songsThatArentInArtist];
+    return AlbumParser.parse(data, albumId);
   }
 
   /// Retrieves detailed information about a playlist given its playlist ID.
