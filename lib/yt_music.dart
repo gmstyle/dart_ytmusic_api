@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 
 import 'package:cookie_jar/cookie_jar.dart';
@@ -353,12 +354,19 @@ class YTMusic {
     }
   }
 
+  void _writeRawResponse(String methodName, dynamic data) {
+    final dir = Directory.current.path;
+    final file = File('$dir${Platform.pathSeparator}${methodName}Raw.txt');
+    file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(data));
+  }
+
   /// Retrieves search suggestions for a given query.
   Future<List<String>> getSearchSuggestions(String query) async {
     final response = await constructRequest(
       "music/get_search_suggestions",
       body: {"input": query},
     );
+    _writeRawResponse('getSearchSuggestions', response);
 
     return traverseList(response, ["query"]).whereType<String>().toList();
   }
@@ -369,6 +377,7 @@ class YTMusic {
       "search",
       body: {"query": query, "params": null},
     );
+    _writeRawResponse('search', searchData);
 
     return traverseList(searchData, ["musicResponsiveListItemRenderer"])
         .map(SearchParser.parse)
@@ -386,6 +395,7 @@ class YTMusic {
         "params": "Eg-KAQwIARAAGAAgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
+    _writeRawResponse('searchSongs', searchData);
 
     final results = traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -404,6 +414,7 @@ class YTMusic {
         "params": "Eg-KAQwIABABGAAgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
+    _writeRawResponse('searchVideos', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -419,6 +430,7 @@ class YTMusic {
         "params": "Eg-KAQwIABAAGAAgASgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
+    _writeRawResponse('searchArtists', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -434,6 +446,7 @@ class YTMusic {
         "params": "Eg-KAQwIABAAGAEgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
+    _writeRawResponse('searchAlbums', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -449,6 +462,7 @@ class YTMusic {
         "params": "Eg-KAQwIABAAGAAgACgBMABqChAEEAMQCRAFEAo%3D",
       },
     );
+    _writeRawResponse('searchPlaylists', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -462,6 +476,7 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
+    _writeRawResponse('getSong', data);
 
     final song = SongParser.parse(data);
     if (song.videoId != videoId) {
@@ -484,6 +499,7 @@ class YTMusic {
         "isAudioOnly": true,
       },
     );
+    _writeRawResponse('getUpNexts', data);
 
     final tabs =
         data?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer']?['contents'];
@@ -545,6 +561,7 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
+    _writeRawResponse('getVideo', data);
 
     final video = VideoParser.parse(data);
     if (video.videoId != videoId) {
@@ -568,6 +585,7 @@ class YTMusic {
       "browse",
       body: {"browseId": browseId},
     );
+    _writeRawResponse('getLyrics', lyricsData);
     final lyrics = traverseString(lyricsData, [
       "description",
       "runs",
@@ -599,6 +617,7 @@ class YTMusic {
         clientVersion: androidClientVersion,
       ),
     );
+    _writeRawResponse('getTimedLyrics', lyricsData);
 
     final timedLyrics = traverse(lyricsData, [
       'contents',
@@ -620,6 +639,7 @@ class YTMusic {
   /// Retrieves detailed information about an artist given its artist ID.
   Future<ArtistFull> getArtist(String artistId) async {
     final data = await constructRequest("browse", body: {"browseId": artistId});
+    _writeRawResponse('getArtist', data);
     return ArtistParser.parse(data, artistId);
   }
 
@@ -643,6 +663,7 @@ class YTMusic {
       "browse",
       body: {"browseId": browseToken},
     );
+    _writeRawResponse('getArtistSongs', songsData);
     final continueToken = traverse(songsData, ["continuation"]);
     late final Map moreSongsData;
 
@@ -678,20 +699,23 @@ class YTMusic {
       "browse",
       body: {"browseId": artistId},
     );
-    final artistAlbumsData = traverseList(artistData, [
+    final carousels = traverseList(artistData, [
       "musicCarouselShelfRenderer",
-    ])[0];
+    ]);
+    final albumsCarousel = ArtistParser.findCarousel(carousels, ArtistParser.isAlbums);
+    final artistAlbumsData = albumsCarousel ?? {};
     final browseBody = traverse(artistAlbumsData, [
       "moreContentButton",
       "browseEndpoint",
     ]);
-    if (browseBody is List) {
+    if (browseBody is List || artistAlbumsData.isEmpty) {
       return [];
     }
     final albumsData = await constructRequest(
       "browse",
       body: browseBody is List ? {} : browseBody,
     );
+    _writeRawResponse('getArtistAlbums', albumsData);
 
     return [
       ...traverseList(albumsData, ["musicTwoRowItemRenderer"])
@@ -716,10 +740,11 @@ class YTMusic {
       body: {"browseId": artistId},
     );
 
-    final artistSinglesData =
-        traverseList(artistData, ["musicCarouselShelfRenderer"]).length < 2
-        ? []
-        : traverseList(artistData, ["musicCarouselShelfRenderer"]).elementAt(1);
+    final carousels = traverseList(artistData, [
+      "musicCarouselShelfRenderer",
+    ]);
+    final singlesCarousel = ArtistParser.findCarousel(carousels, ArtistParser.isSingles);
+    final artistSinglesData = singlesCarousel ?? {};
 
     final browseBody = traverse(artistSinglesData, [
       "moreContentButton",
@@ -733,6 +758,7 @@ class YTMusic {
       "browse",
       body: browseBody is List ? {} : browseBody,
     );
+    _writeRawResponse('getArtistSingles', singlesData);
 
     return [
       ...traverseList(singlesData, ["musicTwoRowItemRenderer"])
@@ -754,6 +780,7 @@ class YTMusic {
   /// Retrieves detailed information about an album given its album ID.
   Future<AlbumFull> getAlbum(String albumId) async {
     final data = await constructRequest("browse", body: {"browseId": albumId});
+    _writeRawResponse('getAlbum', data);
 
     final album = AlbumParser.parse(data, albumId);
 
@@ -796,6 +823,7 @@ class YTMusic {
       "browse",
       body: {"browseId": playlistId},
     );
+    _writeRawResponse('getPlaylist', data);
 
     return PlaylistParser.parse(data, playlistId);
   }
@@ -810,6 +838,7 @@ class YTMusic {
       "browse",
       body: {"browseId": playlistId},
     );
+    _writeRawResponse('getPlaylistVideos', playlistData);
 
     final songs = traverseList(playlistData, [
       "musicPlaylistShelfRenderer",
@@ -849,6 +878,7 @@ class YTMusic {
       "browse",
       body: {"browseId": feMusicHome},
     );
+    _writeRawResponse('getHomeSections', data);
 
     final sections = traverseList(data, ["sectionListRenderer", "contents"]);
     dynamic continuation = traverseString(data, ["continuation"]);

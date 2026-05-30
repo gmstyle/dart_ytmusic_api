@@ -6,11 +6,91 @@ import 'package:dart_ytmusic_api/types.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class ArtistParser {
+  static String? carouselTitle(dynamic carousel) {
+    final header = carousel is Map ? carousel['header'] : null;
+    final basicHeader = header is Map
+        ? header['musicCarouselShelfBasicHeaderRenderer']
+        : null;
+    final titleObj = basicHeader is Map ? basicHeader['title'] : null;
+    if (titleObj is Map) {
+      final runs = titleObj['runs'];
+      if (runs is List && runs.isNotEmpty) {
+        return runs[0]['text']?.toString();
+      }
+      final simple = titleObj['simpleText'];
+      if (simple is String) return simple;
+    }
+    return null;
+  }
+
+  static dynamic findCarousel(
+    List<dynamic> carousels, bool Function(String) test,
+  ) {
+    for (final c in carousels) {
+      final title = carouselTitle(c);
+      if (title != null && test(title)) return c;
+    }
+    return null;
+  }
+
+  static bool isAlbums(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('album');
+  }
+
+  static bool isSingles(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('single') || lower == 'eps' || (lower.contains('ep') && !lower.contains('featured') && !lower.contains('album'));
+  }
+
+  static bool isVideos(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('video') || lower.contains('live performance');
+  }
+
+  static bool isFeatured(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('featured') || lower.contains('playlist');
+  }
+
+  static bool isSimilar(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('fan') || lower.contains('similar') || lower.contains('also like') || lower.contains('related');
+  }
+
+  static List<dynamic> findAllCarousels(
+    List<dynamic> carousels, bool Function(String) test,
+  ) {
+    final result = <dynamic>[];
+    for (final c in carousels) {
+      final title = carouselTitle(c);
+      if (title != null && test(title)) result.add(c);
+    }
+    return result;
+  }
+
   static ArtistFull parse(dynamic data, String artistId) {
     final artistBasic = ArtistBasic(
       artistId: artistId,
       name: traverseString(data, ["header", "title", "text"]) ?? '',
     );
+
+    final carousels = traverseList(data, ["musicCarouselShelfRenderer"]);
+    final albumsCarousel = findCarousel(carousels, isAlbums);
+    final singlesCarousel = findCarousel(carousels, isSingles);
+    final videosCarousels = findAllCarousels(carousels, isVideos);
+    final featuredCarousels = findAllCarousels(carousels, isFeatured);
+    final similarCarousel = findCarousel(carousels, isSimilar);
+
+    final allVideoContents = <dynamic>[];
+    for (final c in videosCarousels) {
+      allVideoContents.addAll(_parseCarouselContents(c));
+    }
+
+    final allFeaturedContents = <dynamic>[];
+    for (final c in featuredCarousels) {
+      allFeaturedContents.addAll(_parseCarouselContents(c));
+    }
 
     return ArtistFull(
       name: artistBasic.name,
@@ -23,79 +103,28 @@ class ArtistParser {
       topSongs: traverseList(data, ["musicShelfRenderer", "contents"])
           .map((item) => SongParser.parseArtistTopSong(item, artistBasic))
           .toList(),
-      topAlbums:
-          (traverseList(data, ["musicCarouselShelfRenderer"]).isEmpty
-                  ? <AlbumDetailed>[]
-                  : (traverseList(data, [
-                                  "musicCarouselShelfRenderer",
-                                ]).elementAt(0)?['contents']
-                                as List<dynamic>?)
-                            ?.map(
-                              (item) => AlbumParser.parseArtistTopAlbum(
-                                item,
-                                artistBasic,
-                              ),
-                            )
-                            .toList() ??
-                        <AlbumDetailed>[])
-              .where((album) => album.albumId.isNotEmpty)
-              .toList(),
-      topSingles:
-          (traverseList(data, ["musicCarouselShelfRenderer"]).length < 2
-                  ? <AlbumDetailed>[]
-                  : (traverseList(data, [
-                                  "musicCarouselShelfRenderer",
-                                ]).elementAt(1)?['contents']
-                                as List<dynamic>?)
-                            ?.map(
-                              (item) => AlbumParser.parseArtistTopAlbum(
-                                item,
-                                artistBasic,
-                              ),
-                            )
-                            .toList() ??
-                        <AlbumDetailed>[])
-              .where(
-                (single) =>
-                    single.albumId.isNotEmpty && single.albumId.startsWith('M'),
-              )
-              .toList(),
-      topVideos: traverseList(data, ["musicCarouselShelfRenderer"]).length < 3
-          ? <VideoDetailed>[]
-          : (traverseList(data, [
-                          "musicCarouselShelfRenderer",
-                        ]).elementAt(2)?['contents']
-                        as List<dynamic>?)
-                    ?.map(
-                      (item) =>
-                          VideoParser.parseArtistTopVideo(item, artistBasic),
-                    )
-                    .toList() ??
-                <VideoDetailed>[],
-      featuredOn: traverseList(data, ["musicCarouselShelfRenderer"]).length < 4
-          ? <PlaylistDetailed>[]
-          : (traverseList(data, [
-                          "musicCarouselShelfRenderer",
-                        ]).elementAt(3)?['contents']
-                        as List<dynamic>?)
-                    ?.map(
-                      (item) => PlaylistParser.parseArtistFeaturedOn(
-                        item,
-                        artistBasic,
-                      ),
-                    )
-                    .toList() ??
-                <PlaylistDetailed>[],
-      similarArtists:
-          traverseList(data, ["musicCarouselShelfRenderer"]).length < 5
-          ? <ArtistDetailed>[]
-          : (traverseList(data, [
-                          "musicCarouselShelfRenderer",
-                        ]).elementAt(4)?['contents']
-                        as List<dynamic>?)
-                    ?.map((item) => parseSimilarArtists(item))
-                    .toList() ??
-                <ArtistDetailed>[],
+      topAlbums: _parseCarouselContents(albumsCarousel)
+          .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
+          .toList()
+          .where((album) => album.albumId.isNotEmpty)
+          .toList(),
+      topSingles: _parseCarouselContents(singlesCarousel)
+          .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
+          .toList()
+          .where(
+            (single) =>
+                single.albumId.isNotEmpty && single.albumId.startsWith('M'),
+          )
+          .toList(),
+      topVideos: allVideoContents
+          .map((item) => VideoParser.parseArtistTopVideo(item, artistBasic))
+          .toList(),
+      featuredOn: allFeaturedContents
+          .map((item) => PlaylistParser.parseArtistFeaturedOn(item, artistBasic))
+          .toList(),
+      similarArtists: _parseCarouselContents(similarCarousel)
+          .map((item) => parseSimilarArtists(item))
+          .toList(),
       subscriberCount: traverseString(data, [
         "header",
         "subscriptionButton",
@@ -117,6 +146,12 @@ class ArtistParser {
         "channelId",
       ]),
     );
+  }
+
+  static List<dynamic> _parseCarouselContents(dynamic carousel) {
+    if (carousel is! Map) return [];
+    final contents = carousel['contents'];
+    return contents is List ? contents : [];
   }
 
   static String? _extractTotalViews(dynamic data) {
