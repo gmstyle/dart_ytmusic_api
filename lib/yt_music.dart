@@ -366,7 +366,7 @@ class YTMusic {
       "music/get_search_suggestions",
       body: {"input": query},
     );
-    _writeRawResponse('getSearchSuggestions', response);
+    //_writeRawResponse('getSearchSuggestions', response);
 
     return traverseList(response, ["query"]).whereType<String>().toList();
   }
@@ -377,7 +377,7 @@ class YTMusic {
       "search",
       body: {"query": query, "params": null},
     );
-    _writeRawResponse('search', searchData);
+    //_writeRawResponse('search', searchData);
 
     return traverseList(searchData, ["musicResponsiveListItemRenderer"])
         .map(SearchParser.parse)
@@ -395,7 +395,7 @@ class YTMusic {
         "params": "Eg-KAQwIARAAGAAgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
-    _writeRawResponse('searchSongs', searchData);
+    //_writeRawResponse('searchSongs', searchData);
 
     final results = traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -414,7 +414,7 @@ class YTMusic {
         "params": "Eg-KAQwIABABGAAgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
-    _writeRawResponse('searchVideos', searchData);
+    //_writeRawResponse('searchVideos', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -430,7 +430,7 @@ class YTMusic {
         "params": "Eg-KAQwIABAAGAAgASgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
-    _writeRawResponse('searchArtists', searchData);
+    //_writeRawResponse('searchArtists', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -446,7 +446,7 @@ class YTMusic {
         "params": "Eg-KAQwIABAAGAEgACgAMABqChAEEAMQCRAFEAo%3D",
       },
     );
-    _writeRawResponse('searchAlbums', searchData);
+    //_writeRawResponse('searchAlbums', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -462,7 +462,7 @@ class YTMusic {
         "params": "Eg-KAQwIABAAGAAgACgBMABqChAEEAMQCRAFEAo%3D",
       },
     );
-    _writeRawResponse('searchPlaylists', searchData);
+    //_writeRawResponse('searchPlaylists', searchData);
 
     return traverseList(searchData, [
       "musicResponsiveListItemRenderer",
@@ -476,7 +476,7 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
-    _writeRawResponse('getSong', data);
+    //_writeRawResponse('getSong', data);
 
     final song = SongParser.parse(data);
     if (song.videoId != videoId) {
@@ -499,7 +499,7 @@ class YTMusic {
         "isAudioOnly": true,
       },
     );
-    _writeRawResponse('getUpNexts', data);
+    //_writeRawResponse('getUpNexts', data);
 
     final tabs =
         data?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer']?['contents'];
@@ -561,7 +561,7 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
-    _writeRawResponse('getVideo', data);
+    //_writeRawResponse('getVideo', data);
 
     final video = VideoParser.parse(data);
     if (video.videoId != videoId) {
@@ -585,7 +585,7 @@ class YTMusic {
       "browse",
       body: {"browseId": browseId},
     );
-    _writeRawResponse('getLyrics', lyricsData);
+    //_writeRawResponse('getLyrics', lyricsData);
     final lyrics = traverseString(lyricsData, [
       "description",
       "runs",
@@ -617,7 +617,7 @@ class YTMusic {
         clientVersion: androidClientVersion,
       ),
     );
-    _writeRawResponse('getTimedLyrics', lyricsData);
+    //_writeRawResponse('getTimedLyrics', lyricsData);
 
     final timedLyrics = traverse(lyricsData, [
       'contents',
@@ -639,7 +639,7 @@ class YTMusic {
   /// Retrieves detailed information about an artist given its artist ID.
   Future<ArtistFull> getArtist(String artistId) async {
     final data = await constructRequest("browse", body: {"browseId": artistId});
-    _writeRawResponse('getArtist', data);
+    //_writeRawResponse('getArtist', data);
     return ArtistParser.parse(data, artistId);
   }
 
@@ -663,7 +663,7 @@ class YTMusic {
       "browse",
       body: {"browseId": browseToken},
     );
-    _writeRawResponse('getArtistSongs', songsData);
+    //_writeRawResponse('getArtistSongs', songsData);
     final continueToken = traverse(songsData, ["continuation"]);
     late final Map moreSongsData;
 
@@ -699,10 +699,11 @@ class YTMusic {
       "browse",
       body: {"browseId": artistId},
     );
-    final carousels = traverseList(artistData, [
-      "musicCarouselShelfRenderer",
-    ]);
-    final albumsCarousel = ArtistParser.findCarousel(carousels, ArtistParser.isAlbums);
+    final carousels = traverseList(artistData, ["musicCarouselShelfRenderer"]);
+    final albumsCarousel = ArtistParser.findCarousel(
+      carousels,
+      ArtistParser.isAlbums,
+    );
     final artistAlbumsData = albumsCarousel ?? {};
     final browseBody = traverse(artistAlbumsData, [
       "moreContentButton",
@@ -715,7 +716,7 @@ class YTMusic {
       "browse",
       body: browseBody is List ? {} : browseBody,
     );
-    _writeRawResponse('getArtistAlbums', albumsData);
+    //_writeRawResponse('getArtistAlbums', albumsData);
 
     return [
       ...traverseList(albumsData, ["musicTwoRowItemRenderer"])
@@ -740,10 +741,11 @@ class YTMusic {
       body: {"browseId": artistId},
     );
 
-    final carousels = traverseList(artistData, [
-      "musicCarouselShelfRenderer",
-    ]);
-    final singlesCarousel = ArtistParser.findCarousel(carousels, ArtistParser.isSingles);
+    final carousels = traverseList(artistData, ["musicCarouselShelfRenderer"]);
+    final singlesCarousel = ArtistParser.findCarousel(
+      carousels,
+      ArtistParser.isSingles,
+    );
     final artistSinglesData = singlesCarousel ?? {};
 
     final browseBody = traverse(artistSinglesData, [
@@ -758,7 +760,7 @@ class YTMusic {
       "browse",
       body: browseBody is List ? {} : browseBody,
     );
-    _writeRawResponse('getArtistSingles', singlesData);
+    //_writeRawResponse('getArtistSingles', singlesData);
 
     return [
       ...traverseList(singlesData, ["musicTwoRowItemRenderer"])
@@ -823,7 +825,7 @@ class YTMusic {
       "browse",
       body: {"browseId": playlistId},
     );
-    _writeRawResponse('getPlaylist', data);
+    //_writeRawResponse('getPlaylist', data);
 
     return PlaylistParser.parse(data, playlistId);
   }
@@ -838,7 +840,7 @@ class YTMusic {
       "browse",
       body: {"browseId": playlistId},
     );
-    _writeRawResponse('getPlaylistVideos', playlistData);
+    //_writeRawResponse('getPlaylistVideos', playlistData);
 
     final songs = traverseList(playlistData, [
       "musicPlaylistShelfRenderer",
@@ -878,7 +880,7 @@ class YTMusic {
       "browse",
       body: {"browseId": feMusicHome},
     );
-    _writeRawResponse('getHomeSections', data);
+    //_writeRawResponse('getHomeSections', data);
 
     final sections = traverseList(data, ["sectionListRenderer", "contents"]);
     dynamic continuation = traverseString(data, ["continuation"]);
