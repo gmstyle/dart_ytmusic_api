@@ -111,6 +111,8 @@ class ArtistParser {
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       topSongs: traverseList(data, ["musicShelfRenderer", "contents"])
           .map((item) => SongParser.parseArtistTopSong(item, artistBasic))
+          .toList()
+          .where((song) => song.videoId.isNotEmpty)
           .toList(),
       topAlbums: _parseCarouselContents(albumsCarousel)
           .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
