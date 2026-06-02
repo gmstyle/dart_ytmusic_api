@@ -9,11 +9,14 @@ dynamic traverse(dynamic data, List<String> keys) {
 
     if (data is List) {
       res.addAll(
-          data.map((v) => again(v, key)).expand((x) => x is List ? x : [x]));
+        data.map((v) => again(v, key)).expand((x) => x is List ? x : [x]),
+      );
     } else if (data is Map) {
-      res.addAll(data.values
-          .map((v) => again(v, key))
-          .expand((x) => x is List ? x : [x]));
+      res.addAll(
+        data.values
+            .map((v) => again(v, key))
+            .expand((x) => x is List ? x : [x]),
+      );
     }
 
     return res.length == 1 ? res[0] : res;

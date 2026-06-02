@@ -4,7 +4,7 @@ import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class SongParser {
-  static SongFull parse(dynamic data) {
+  static SongFull parse(dynamic data, {AlbumBasic? album}) {
     return SongFull(
       type: "SONG",
       videoId: traverseString(data, ["videoDetails", "videoId"]) ?? '',
@@ -36,6 +36,7 @@ class SongParser {
         "microformatDataRenderer",
         "category",
       ]),
+      album: album,
     );
   }
 

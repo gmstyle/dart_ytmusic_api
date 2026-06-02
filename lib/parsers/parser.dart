@@ -61,12 +61,17 @@ class Parser {
   }
 
   static HomeSection parseHomeSection(dynamic data) {
-    final pageType = traverseString(
-        data, ["contents", "title", "browseEndpoint", "pageType"]);
-    final playlistId = traverseString(
-      data,
-      ["navigationEndpoint", "watchPlaylistEndpoint", "playlistId"],
-    );
+    final pageType = traverseString(data, [
+      "contents",
+      "title",
+      "browseEndpoint",
+      "pageType",
+    ]);
+    final playlistId = traverseString(data, [
+      "navigationEndpoint",
+      "watchPlaylistEndpoint",
+      "playlistId",
+    ]);
 
     return HomeSection(
       title: traverseString(data, ["header", "title", "text"]) ?? '',

@@ -478,11 +478,74 @@ class YTMusic {
     final data = await constructRequest("player", body: {"videoId": videoId});
     //_writeRawResponse('getSong', data);
 
-    final song = SongParser.parse(data);
+    final album = await _getAlbumFromNext(videoId);
+    final song = SongParser.parse(data, album: album);
     if (song.videoId != videoId) {
       throw Exception("Invalid videoId");
     }
     return song;
+  }
+
+  /// Calls the `/next` endpoint to extract album info for the current song.
+  Future<AlbumBasic?> _getAlbumFromNext(String videoId) async {
+    try {
+      final nextData = await constructRequest(
+        "next",
+        body: {
+          "videoId": videoId,
+          "playlistId": "RDAMVM$videoId",
+          "isAudioOnly": true,
+        },
+      );
+
+      final playlistPanelRenderer =
+          nextData?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer'];
+
+      final contents = playlistPanelRenderer?['contents'] as List<dynamic>?;
+      if (contents == null || contents.isEmpty) return null;
+
+      final current = contents[0]?['playlistPanelVideoRenderer'];
+      final bylineRuns = current?['longBylineText']?['runs'] as List<dynamic>?;
+      if (bylineRuns != null) {
+        for (final run in bylineRuns) {
+          final pageType =
+              run?['navigationEndpoint']?['browseEndpoint']?['browseEndpointContextSupportedConfigs']?['browseEndpointContextMusicConfig']?['pageType']
+                  as String?;
+          if (pageType == 'MUSIC_PAGE_TYPE_ALBUM') {
+            final albumName = run['text'] as String?;
+            final albumId =
+                run['navigationEndpoint']?['browseEndpoint']?['browseId']
+                    as String?;
+            if (albumName != null && albumId != null) {
+              return AlbumBasic(name: albumName, albumId: albumId);
+            }
+          }
+        }
+      }
+
+      // Fallback: use playlistId if it's an album ID (OLAK5uy_...)
+      final playlistId = playlistPanelRenderer?['playlistId'] as String?;
+      if (playlistId != null &&
+          playlistId.startsWith('OLAK5uy_') &&
+          contents.isNotEmpty) {
+        final name =
+            current?['longBylineText']?['runs']?.firstWhere(
+                  (r) =>
+                      r?['navigationEndpoint']?['browseEndpoint']?['browseEndpointContextSupportedConfigs']?['browseEndpointContextMusicConfig']?['pageType'] ==
+                      'MUSIC_PAGE_TYPE_ALBUM',
+                  orElse: () => null,
+                )?['text']
+                as String? ??
+            current?['title']?['runs']?[0]?['text'] as String?;
+        if (name != null) {
+          return AlbumBasic(name: name, albumId: playlistId);
+        }
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Retrieves a list of up next songs for a given video ID.
@@ -521,14 +584,23 @@ class YTMusic {
       final artistId =
           longBylineRuns?[0]?['navigationEndpoint']?['browseEndpoint']?['browseId'];
 
-      // Parse album information (usually at index 2 in longBylineText.runs)
+      // Parse album information by finding MUSIC_PAGE_TYPE_ALBUM in longBylineText.runs
       AlbumBasic? album;
-      if (longBylineRuns != null && longBylineRuns.length > 2) {
-        final albumName = longBylineRuns[2]?['text'];
-        final albumId =
-            longBylineRuns[2]?['navigationEndpoint']?['browseEndpoint']?['browseId'];
-        if (albumName != null && albumId != null) {
-          album = AlbumBasic(name: albumName, albumId: albumId);
+      if (longBylineRuns != null) {
+        for (final run in longBylineRuns) {
+          final pageType =
+              run?['navigationEndpoint']?['browseEndpoint']?['browseEndpointContextSupportedConfigs']?['browseEndpointContextMusicConfig']?['pageType']
+                  as String?;
+          if (pageType == 'MUSIC_PAGE_TYPE_ALBUM') {
+            final albumName = run['text'] as String?;
+            final albumId =
+                run['navigationEndpoint']?['browseEndpoint']?['browseId']
+                    as String?;
+            if (albumName != null && albumId != null) {
+              album = AlbumBasic(name: albumName, albumId: albumId);
+              break;
+            }
+          }
         }
       }
 

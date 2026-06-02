@@ -24,7 +24,8 @@ class ArtistParser {
   }
 
   static dynamic findCarousel(
-    List<dynamic> carousels, bool Function(String) test,
+    List<dynamic> carousels,
+    bool Function(String) test,
   ) {
     for (final c in carousels) {
       final title = carouselTitle(c);
@@ -40,7 +41,11 @@ class ArtistParser {
 
   static bool isSingles(String title) {
     final lower = title.toLowerCase();
-    return lower.contains('single') || lower == 'eps' || (lower.contains('ep') && !lower.contains('featured') && !lower.contains('album'));
+    return lower.contains('single') ||
+        lower == 'eps' ||
+        (lower.contains('ep') &&
+            !lower.contains('featured') &&
+            !lower.contains('album'));
   }
 
   static bool isVideos(String title) {
@@ -55,11 +60,15 @@ class ArtistParser {
 
   static bool isSimilar(String title) {
     final lower = title.toLowerCase();
-    return lower.contains('fan') || lower.contains('similar') || lower.contains('also like') || lower.contains('related');
+    return lower.contains('fan') ||
+        lower.contains('similar') ||
+        lower.contains('also like') ||
+        lower.contains('related');
   }
 
   static List<dynamic> findAllCarousels(
-    List<dynamic> carousels, bool Function(String) test,
+    List<dynamic> carousels,
+    bool Function(String) test,
   ) {
     final result = <dynamic>[];
     for (final c in carousels) {
@@ -102,6 +111,8 @@ class ArtistParser {
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       topSongs: traverseList(data, ["musicShelfRenderer", "contents"])
           .map((item) => SongParser.parseArtistTopSong(item, artistBasic))
+          .toList()
+          .where((song) => song.videoId.isNotEmpty)
           .toList(),
       topAlbums: _parseCarouselContents(albumsCarousel)
           .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
@@ -120,11 +131,13 @@ class ArtistParser {
           .map((item) => VideoParser.parseArtistTopVideo(item, artistBasic))
           .toList(),
       featuredOn: allFeaturedContents
-          .map((item) => PlaylistParser.parseArtistFeaturedOn(item, artistBasic))
+          .map(
+            (item) => PlaylistParser.parseArtistFeaturedOn(item, artistBasic),
+          )
           .toList(),
-      similarArtists: _parseCarouselContents(similarCarousel)
-          .map((item) => parseSimilarArtists(item))
-          .toList(),
+      similarArtists: _parseCarouselContents(
+        similarCarousel,
+      ).map((item) => parseSimilarArtists(item)).toList(),
       subscriberCount: traverseString(data, [
         "header",
         "subscriptionButton",
@@ -188,7 +201,8 @@ class ArtistParser {
     String? monthlyListeners;
     final flexColumns = item['flexColumns'] as List<dynamic>?;
     if (flexColumns != null && flexColumns.length > 1) {
-      final secondCol = flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
+      final secondCol =
+          flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
       final runs = secondCol?['text']?['runs'] as List<dynamic>?;
       if (runs != null && runs.length > 2) {
         monthlyListeners = runs[2]['text'] as String?;

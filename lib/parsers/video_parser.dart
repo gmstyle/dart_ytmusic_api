@@ -24,10 +24,24 @@ class VideoParser {
       familySafe: traverse(data, ["familySafe"]),
       paid: traverse(data, ["paid"]),
       tags: traverseList(data, ["tags"]).whereType<String>().toList(),
-      viewCount: int.tryParse(traverseString(data, ["videoDetails", "viewCount"]) ?? ''),
-      publishDate: traverseString(data, ["microformat", "microformatDataRenderer", "publishDate"]),
-      category: traverseString(data, ["microformat", "microformatDataRenderer", "category"]),
-      uploadDate: traverseString(data, ["microformat", "microformatDataRenderer", "uploadDate"]),
+      viewCount: int.tryParse(
+        traverseString(data, ["videoDetails", "viewCount"]) ?? '',
+      ),
+      publishDate: traverseString(data, [
+        "microformat",
+        "microformatDataRenderer",
+        "publishDate",
+      ]),
+      category: traverseString(data, [
+        "microformat",
+        "microformatDataRenderer",
+        "category",
+      ]),
+      uploadDate: traverseString(data, [
+        "microformat",
+        "microformatDataRenderer",
+        "uploadDate",
+      ]),
       musicVideoType: traverseString(data, ["videoDetails", "musicVideoType"]),
     );
   }
@@ -45,7 +59,8 @@ class VideoParser {
     String? viewCount;
     final flexColumns = item['flexColumns'] as List<dynamic>?;
     if (flexColumns != null && flexColumns.length > 1) {
-      final secondCol = flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
+      final secondCol =
+          flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
       final runs = secondCol?['text']?['runs'] as List<dynamic>?;
       if (runs != null && runs.length > 2) {
         viewCount = runs[2]['text'] as String?;
@@ -111,9 +126,12 @@ class VideoParser {
     ]);
     final videoId2 = () {
       final firstThumb = traverseList(item, ["thumbnails"]).firstOrNull;
-      final url =
-          firstThumb is Map && firstThumb['url'] is String ? firstThumb['url'] as String : '';
-      return RegExp(r"https:\/\/i\.ytimg\.com\/vi\/(.+)\/").firstMatch(url)?.group(1);
+      final url = firstThumb is Map && firstThumb['url'] is String
+          ? firstThumb['url'] as String
+          : '';
+      return RegExp(
+        r"https:\/\/i\.ytimg\.com\/vi\/(.+)\/",
+      ).firstMatch(url)?.group(1);
     }();
 
     if ((videoId1?.isEmpty ?? true) && videoId2 == null) {

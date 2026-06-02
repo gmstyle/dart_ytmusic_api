@@ -16,9 +16,10 @@ class AlbumParser {
       name: traverseString(artistData, ["text"]) ?? '',
     );
 
-    final thumbnails = traverseList(data, ["background", "thumbnails"])
-        .map((item) => ThumbnailFull.fromMap(item))
-        .toList();
+    final thumbnails = traverseList(data, [
+      "background",
+      "thumbnails",
+    ]).map((item) => ThumbnailFull.fromMap(item)).toList();
 
     return AlbumFull(
       name: albumBasic.name,
@@ -27,9 +28,7 @@ class AlbumParser {
       playlistId:
           traverseString(data, ["musicPlayButtonRenderer", "playlistId"]) ?? '',
       artist: artistBasic,
-      year: processYear(
-        traverseList(data, ["tabs", "subtitle", "text"]).last,
-      ),
+      year: processYear(traverseList(data, ["tabs", "subtitle", "text"]).last),
       thumbnails: thumbnails,
       songs: traverseList(data, ["musicResponsiveListItemRenderer"])
           .map(
@@ -62,16 +61,16 @@ class AlbumParser {
   }
 
   static AlbumDetailed parseRelatedRelease(dynamic item) {
-    final subtitleRuns = traverseList(item, ["subtitle", "runs"])
-        .expand((e) => e is List ? e : [e])
-        .toList();
-    final artistRun = subtitleRuns.firstWhere(
-      isArtist,
-      orElse: () => null,
-    );
+    final subtitleRuns = traverseList(item, [
+      "subtitle",
+      "runs",
+    ]).expand((e) => e is List ? e : [e]).toList();
+    final artistRun = subtitleRuns.firstWhere(isArtist, orElse: () => null);
 
-    final albumId = traverseString(item, ["navigationEndpoint", "browseId"]) ?? '';
-    final playlistId = traverseString(item, ["watchPlaylistEndpoint", "playlistId"]) ?? '';
+    final albumId =
+        traverseString(item, ["navigationEndpoint", "browseId"]) ?? '';
+    final playlistId =
+        traverseString(item, ["watchPlaylistEndpoint", "playlistId"]) ?? '';
 
     return AlbumDetailed(
       type: "ALBUM",
@@ -83,21 +82,23 @@ class AlbumParser {
         artistId: traverseString(artistRun, ["browseId"]),
       ),
       year: null,
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
   static AlbumDetailed parseSearchResult(dynamic item) {
-    final columns = traverseList(item, ["flexColumns", "runs"])
-        .expand((e) => e is List ? e : [e])
-        .toList();
+    final columns = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).expand((e) => e is List ? e : [e]).toList();
 
     // No specific way to identify the title
     final title = columns[0];
     final artist = columns.firstWhere(isArtist, orElse: () => columns[3]);
-    final playlistId = traverseString(item, ["overlay", "playlistId"]) ??
+    final playlistId =
+        traverseString(item, ["overlay", "playlistId"]) ??
         traverseString(item, ["thumbnailOverlay", "playlistId"]);
 
     return AlbumDetailed(
@@ -110,32 +111,35 @@ class AlbumParser {
       ),
       year: processYear(columns.last?['text']),
       name: traverseString(title, ["text"]) ?? '',
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
   static AlbumDetailed parseArtistAlbum(dynamic item, ArtistBasic artistBasic) {
     return AlbumDetailed(
       type: "ALBUM",
-      albumId: traverseList(item, ["browseId"])
-              .where((element) => element != artistBasic.artistId)
-              .firstOrNull ??
+      albumId:
+          traverseList(item, [
+            "browseId",
+          ]).where((element) => element != artistBasic.artistId).firstOrNull ??
           '',
       playlistId:
           traverseString(item, ["thumbnailOverlay", "playlistId"]) ?? '',
       name: traverseString(item, ["title", "text"]) ?? '',
       artist: artistBasic,
       year: processYear(traverseList(item, ["subtitle", "text"]).last),
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
   static AlbumDetailed parseArtistTopAlbum(
-      dynamic item, ArtistBasic artistBasic) {
+    dynamic item,
+    ArtistBasic artistBasic,
+  ) {
     return AlbumDetailed(
       type: "ALBUM",
       albumId: traverseList(item, ["browseId"]).isEmpty
@@ -146,9 +150,9 @@ class AlbumParser {
       name: traverseString(item, ["title", "text"]) ?? '',
       artist: artistBasic,
       year: processYear(traverseList(item, ["subtitle", "text"]).last),
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
@@ -166,9 +170,9 @@ class AlbumParser {
         artistId: traverseString(artist, ["browseId"]) ?? '',
       ),
       year: null,
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
