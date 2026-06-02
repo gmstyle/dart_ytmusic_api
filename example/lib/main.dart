@@ -442,6 +442,7 @@ Future<List<String>> _getSong(String id) async {
     'Artist: ${s.artist.name}',
     'Duration: ${s.duration}s',
     'videoId: ${s.videoId}',
+    'albumId: ${s.album?.albumId ?? 'N/A'}',
     'viewCount: ${s.viewCount ?? 'N/A'}',
     'channelId: ${s.channelId ?? 'N/A'}',
     'publishDate: ${s.publishDate ?? 'N/A'}',

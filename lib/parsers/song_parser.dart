@@ -4,7 +4,7 @@ import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class SongParser {
-  static SongFull parse(dynamic data) {
+  static SongFull parse(dynamic data, {AlbumBasic? album}) {
     return SongFull(
       type: "SONG",
       videoId: traverseString(data, ["videoDetails", "videoId"]) ?? '',
@@ -14,35 +14,52 @@ class SongParser {
         artistId: traverseString(data, ["videoDetails", "channelId"]),
       ),
       duration: int.parse(
-          traverseString(data, ["videoDetails", "lengthSeconds"]) ?? '0'),
-      thumbnails: traverseList(data, ["videoDetails", "thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+        traverseString(data, ["videoDetails", "lengthSeconds"]) ?? '0',
+      ),
+      thumbnails: traverseList(data, [
+        "videoDetails",
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       formats: traverseList(data, ["streamingData", "formats"]),
       adaptiveFormats: traverseList(data, ["streamingData", "adaptiveFormats"]),
-      viewCount: int.tryParse(traverseString(data, ["videoDetails", "viewCount"]) ?? ''),
+      viewCount: int.tryParse(
+        traverseString(data, ["videoDetails", "viewCount"]) ?? '',
+      ),
       channelId: traverseString(data, ["videoDetails", "channelId"]),
-      publishDate: traverseString(data, ["microformat", "microformatDataRenderer", "publishDate"]),
-      category: traverseString(data, ["microformat", "microformatDataRenderer", "category"]),
+      publishDate: traverseString(data, [
+        "microformat",
+        "microformatDataRenderer",
+        "publishDate",
+      ]),
+      category: traverseString(data, [
+        "microformat",
+        "microformatDataRenderer",
+        "category",
+      ]),
+      album: album,
     );
   }
 
   static SongDetailed parseSearchResult(dynamic item) {
-    final columns = traverseList(item, ["flexColumns", "runs"])
-        .expand((e) => e is Iterable ? e : [e]).toList();
+    final columns = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).expand((e) => e is Iterable ? e : [e]).toList();
 
     final title = columns[0];
     final artist = columns.firstWhere(isArtist, orElse: () => columns[3]);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final duration = columns.firstWhere(
-        (item) => isDuration(item) && item != title,
-        orElse: () => null);
+      (item) => isDuration(item) && item != title,
+      orElse: () => null,
+    );
 
     String? playCount;
     String? albumId;
     final flexColumns = item['flexColumns'] as List<dynamic>?;
     if (flexColumns != null && flexColumns.length > 2) {
-      final thirdCol = flexColumns[2]['musicResponsiveListItemFlexColumnRenderer'];
+      final thirdCol =
+          flexColumns[2]['musicResponsiveListItemFlexColumnRenderer'];
       final runs = thirdCol?['text']?['runs'] as List<dynamic>?;
       if (runs != null && runs.isNotEmpty) {
         playCount = runs[0]['text'] as String?;
@@ -68,24 +85,27 @@ class SongParser {
             )
           : null,
       duration: Parser.parseDuration(duration?['text']),
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       playCount: playCount,
       albumId: albumId,
     );
   }
 
   static SongDetailed parseArtistSong(dynamic item, ArtistBasic artistBasic) {
-    final columns = traverseList(item, ["flexColumns", "runs"])
-        .expand((e) => e is List ? e : [e])
-        .toList();
+    final columns = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).expand((e) => e is List ? e : [e]).toList();
 
     final title = columns.firstWhere(isTitle, orElse: () => null);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final duration = columns.firstWhere(isDuration, orElse: () => null);
-    final cleanedDuration =
-        duration?['text']?.replaceAll(RegExp(r'[^0-9:]'), '');
+    final cleanedDuration = duration?['text']?.replaceAll(
+      RegExp(r'[^0-9:]'),
+      '',
+    );
 
     return SongDetailed(
       type: "SONG",
@@ -99,17 +119,20 @@ class SongParser {
             )
           : null,
       duration: Parser.parseDuration(cleanedDuration),
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
   static SongDetailed parseArtistTopSong(
-      dynamic item, ArtistBasic artistBasic) {
-    final columns = traverseList(item, ["flexColumns", "runs"])
-        .expand((e) => e is List ? e : [e])
-        .toList();
+    dynamic item,
+    ArtistBasic artistBasic,
+  ) {
+    final columns = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).expand((e) => e is List ? e : [e]).toList();
 
     final title = columns.firstWhere(isTitle, orElse: () => null);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
@@ -135,9 +158,9 @@ class SongParser {
             )
           : null,
       duration: null,
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       playCount: playCount,
       albumId: albumId,
     );
@@ -149,10 +172,14 @@ class SongParser {
     AlbumBasic albumBasic,
     List<ThumbnailFull> thumbnails,
   ) {
-    final title = traverseList(item, ["flexColumns", "runs"])
-        .firstWhere(isTitle, orElse: () => null);
-    final duration = traverseList(item, ["fixedColumns", "runs"])
-        .firstWhere(isDuration, orElse: () => null);
+    final title = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).firstWhere(isTitle, orElse: () => null);
+    final duration = traverseList(item, [
+      "fixedColumns",
+      "runs",
+    ]).firstWhere(isDuration, orElse: () => null);
 
     return SongDetailed(
       type: "SONG",

@@ -14,34 +14,34 @@ class PlaylistParser {
         name: traverseString(artist, ["text"]) ?? '',
         artistId: traverseString(artist, ["browseId"]),
       ),
-      videoCount: int.tryParse(
-              traverseList(data, ["tabs", "secondSubtitle", "text"])
-                  .elementAt(2)
-                  .split(" ")
-                  .first
-                  .replaceAll(",", "")) ??
+      videoCount:
+          int.tryParse(
+            traverseList(data, [
+              "tabs",
+              "secondSubtitle",
+              "text",
+            ]).elementAt(2).split(" ").first.replaceAll(",", ""),
+          ) ??
           0,
-      thumbnails: traverseList(data, ["tabs", "thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(data, [
+        "tabs",
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
   static PlaylistDetailed parseSearchResult(dynamic item) {
-    final columns = traverseList(item, ["flexColumns", "runs"])
-        .expand((e) => e is List ? e : [e])
-        .toList();
+    final columns = traverseList(item, [
+      "flexColumns",
+      "runs",
+    ]).expand((e) => e is List ? e : [e]).toList();
 
     // No specific way to identify the title
     final title = columns[0];
     final artist = columns.firstWhere(
       isArtist,
-      orElse: () => columns.length > 2
-          ? columns[3]
-          : AlbumBasic(
-              albumId: '',
-              name: '',
-            ),
+      orElse: () =>
+          columns.length > 2 ? columns[3] : AlbumBasic(albumId: '', name: ''),
     );
 
     return PlaylistDetailed(
@@ -52,23 +52,25 @@ class PlaylistParser {
         name: traverseString(artist, ["text"]) ?? '',
         artistId: traverseString(artist, ["browseId"]),
       ),
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
   static PlaylistDetailed parseArtistFeaturedOn(
-      dynamic item, ArtistBasic artistBasic) {
+    dynamic item,
+    ArtistBasic artistBasic,
+  ) {
     return PlaylistDetailed(
       type: "PLAYLIST",
       playlistId:
           traverseString(item, ["navigationEndpoint", "browseId"]) ?? '',
       name: traverseString(item, ["runs", "text"]) ?? '',
       artist: artistBasic,
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 
@@ -84,9 +86,9 @@ class PlaylistParser {
         name: traverseString(artist, ["text"]) ?? '',
         artistId: traverseString(artist, ["browseId"]),
       ),
-      thumbnails: traverseList(item, ["thumbnails"])
-          .map((item) => ThumbnailFull.fromMap(item))
-          .toList(),
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
   }
 }

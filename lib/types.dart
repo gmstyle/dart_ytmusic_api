@@ -301,6 +301,7 @@ class SongFull implements SearchResult {
   final String? channelId;
   final String? publishDate;
   final String? category;
+  final AlbumBasic? album;
 
   SongFull({
     required this.type,
@@ -315,6 +316,7 @@ class SongFull implements SearchResult {
     this.channelId,
     this.publishDate,
     this.category,
+    this.album,
   });
 
   SongFull.fromMap(Map<String, dynamic> map)
@@ -331,11 +333,12 @@ class SongFull implements SearchResult {
       viewCount = map['viewCount'] as int?,
       channelId = map['channelId'] as String?,
       publishDate = map['publishDate'] as String?,
-      category = map['category'] as String?;
+      category = map['category'] as String?,
+      album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null;
 
   @override
   String toString() {
-    return 'SongFull(type: $type, videoId: $videoId, name: $name, artist: $artist, duration: $duration, thumbnails: $thumbnails, formats: $formats, adaptiveFormats: $adaptiveFormats)';
+    return 'SongFull(type: $type, videoId: $videoId, name: $name, artist: $artist, duration: $duration, thumbnails: $thumbnails, formats: $formats, adaptiveFormats: $adaptiveFormats, album: $album)';
   }
 }
 
@@ -452,14 +455,14 @@ class ArtistFull implements SearchResult {
       featuredOn = (map['featuredOn'] as List)
           .map((item) => PlaylistDetailed.fromMap(item))
           .toList(),
-similarArtists = (map['similarArtists'] as List)
-            .map((item) => ArtistDetailed.fromMap(item))
-            .toList(),
-        subscriberCount = map['subscriberCount'] as String?,
-        monthlyListeners = map['monthlyListeners'] as String?,
-        totalViews = map['totalViews'] as String?,
-        description = map['description'] as String?,
-        channelId = map['channelId'] as String?;
+      similarArtists = (map['similarArtists'] as List)
+          .map((item) => ArtistDetailed.fromMap(item))
+          .toList(),
+      subscriberCount = map['subscriberCount'] as String?,
+      monthlyListeners = map['monthlyListeners'] as String?,
+      totalViews = map['totalViews'] as String?,
+      description = map['description'] as String?,
+      channelId = map['channelId'] as String?;
 }
 
 class AlbumFull {
@@ -500,8 +503,8 @@ class AlbumFull {
           .toList(),
       relatedReleases = map['relatedReleases'] != null
           ? (map['relatedReleases'] as List)
-              .map((item) => AlbumDetailed.fromMap(item))
-              .toList()
+                .map((item) => AlbumDetailed.fromMap(item))
+                .toList()
           : [];
 }
 
