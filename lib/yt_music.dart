@@ -959,8 +959,9 @@ class YTMusic {
       "thumbnail",
       "thumbnails",
     ]);
-    final backgroundUrl =
-        bgThumbnails.isNotEmpty ? (bgThumbnails[0] as Map)["url"] as String? : null;
+    final backgroundUrl = bgThumbnails.isNotEmpty
+        ? (bgThumbnails[0] as Map)["url"] as String?
+        : null;
 
     return BrowseHomeResult(
       chips: chips,
