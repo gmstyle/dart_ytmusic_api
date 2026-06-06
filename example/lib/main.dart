@@ -131,7 +131,7 @@ class HomePage extends StatelessWidget {
       _ApiItem('Get Playlist', _getPlaylist),
       _ApiItem('Get Playlist Videos', _getPlaylistVideos),
     ]),
-    _ApiGroup('Browse', [_ApiItem('Home Sections', (_) => _getHomeSections())]),
+    _ApiGroup('Browse', [_ApiItem('Home (with chips)', null)]),
   ];
 
   static String _defaultInput(String label) {
@@ -170,15 +170,21 @@ class HomePage extends StatelessWidget {
                 title: Text(item.label),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ApiCallPage(
-                        label: item.label,
-                        defaultInput: _defaultInput(item.label),
-                        call: item.call,
+                  if (item.label == 'Home (with chips)') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const HomeTestPage()),
+                    );
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ApiCallPage(
+                          label: item.label,
+                          defaultInput: _defaultInput(item.label),
+                          call: item.call!,
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                 },
               );
             }).toList(),
@@ -337,6 +343,150 @@ class _ApiCallPageState extends State<ApiCallPage> {
   }
 }
 
+// ─── Home Test Page (with chips) ──────────────────────────────────────────────
+
+class HomeTestPage extends StatefulWidget {
+  const HomeTestPage({super.key});
+
+  @override
+  State<HomeTestPage> createState() => _HomeTestPageState();
+}
+
+class _HomeTestPageState extends State<HomeTestPage> {
+  BrowseHomeResult? _home;
+  List<HomeSection>? _filteredSections;
+  BrowseChip? _selectedChip;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHome();
+  }
+
+  Future<void> _loadHome({String? params}) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final r = await _api.getHome(params: params);
+      if (!mounted) return;
+      setState(() {
+        _home ??= r;
+        _filteredSections = r.sections;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _onChipTap(BrowseChip chip) async {
+    setState(
+      () => _selectedChip = _selectedChip?.title == chip.title ? null : chip,
+    );
+    final params = _selectedChip?.title == chip.title ? chip.params : null;
+    if (params == null) {
+      setState(() => _filteredSections = _home!.sections);
+      return;
+    }
+    await _loadHome(params: chip.params);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        title: const Text('Home with chips'),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Text(
+                'Error: $_error',
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
+          : _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    final home = _home!;
+    return Column(
+      children: [
+        SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            children: [
+              FilterChip(
+                label: Text(_selectedChip == null ? '● All' : 'All'),
+                selected: _selectedChip == null,
+                onSelected: (_) {
+                  setState(() {
+                    _selectedChip = null;
+                    _filteredSections = home.sections;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              ...home.chips.map(
+                (chip) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(chip.title),
+                    selected: _selectedChip?.title == chip.title,
+                    onSelected: (_) => _onChipTap(chip),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: _filteredSections!.isEmpty
+              ? const Center(child: Text('No sections'))
+              : ListView.separated(
+                  itemCount: _filteredSections!.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final section = _filteredSections![i];
+                    return ExpansionTile(
+                      title: Text(
+                        '${section.title} (${section.contents.length})',
+                      ),
+                      children: section.contents.take(10).map((item) {
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            item is SearchResult
+                                ? _resultTitle(item)
+                                : item.toString(),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 /// Extracts a copyable ID from a result string.
@@ -367,7 +517,7 @@ class _ApiGroup {
 
 class _ApiItem {
   final String label;
-  final Future<List<String>> Function(String) call;
+  final Future<List<String>> Function(String)? call;
   const _ApiItem(this.label, this.call);
 }
 
@@ -542,18 +692,6 @@ Future<List<String>> _getPlaylist(String id) async {
 Future<List<String>> _getPlaylistVideos(String id) async {
   final r = await _api.getPlaylistVideos(id);
   return r.map((v) => '${v.name} · ${v.videoId}').toList();
-}
-
-Future<List<String>> _getHomeSections() async {
-  final r = await _api.getHomeSections();
-  final lines = <String>[];
-  for (final section in r) {
-    lines.add('── ${section.title} (${section.contents.length} items)');
-    for (final item in section.contents.take(3)) {
-      lines.add('   ${_resultTitle(item as SearchResult)}');
-    }
-  }
-  return lines;
 }
 
 extension _Indexed<T> on Iterable<T> {

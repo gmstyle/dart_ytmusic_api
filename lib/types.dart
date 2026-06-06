@@ -656,3 +656,34 @@ class HomeSection {
     : title = map['title'] as String,
       contents = map['contents'] as List<dynamic>;
 }
+
+class BrowseChip {
+  final String title;
+  final String params;
+  final bool isSelected;
+
+  BrowseChip({
+    required this.title,
+    required this.params,
+    required this.isSelected,
+  });
+
+  factory BrowseChip.fromMap(Map<String, dynamic> map) {
+    final renderer = map['chipCloudChipRenderer'] as Map<String, dynamic>;
+    return BrowseChip(
+      title: (renderer['text']['runs'] as List)[0]['text'] as String,
+      params:
+          (renderer['navigationEndpoint']['browseEndpoint']['params']
+              as String?) ??
+          '',
+      isSelected: renderer['isSelected'] as bool? ?? false,
+    );
+  }
+}
+
+class BrowseHomeResult {
+  final List<BrowseChip> chips;
+  final List<HomeSection> sections;
+
+  BrowseHomeResult({required this.chips, required this.sections});
+}

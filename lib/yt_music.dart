@@ -918,13 +918,27 @@ class YTMusic {
         .toList();
   }
 
-  /// Retrieves the home sections of the music platform.
-  Future<List<HomeSection>> getHomeSections() async {
+  /// Retrieves the home page sections with optional mood/activity chip filter.
+  ///
+  /// If [params] is provided (from a [BrowseChip.params]), the home page is
+  /// filtered to show content matching that chip (e.g. "Energize", "Relax").
+  /// Returns both the available chips and the (optionally filtered) sections.
+  Future<BrowseHomeResult> getHome({String? params}) async {
     final data = await constructRequest(
       "browse",
-      body: {"browseId": feMusicHome},
+      body: {"browseId": feMusicHome, "params": ?params},
     );
-    //_writeRawResponse('getHomeSections', data);
+    _writeRawResponse('getHome', data);
+
+    final rawChips = traverseList(data, [
+      "sectionListRenderer",
+      "header",
+      "chipCloudRenderer",
+      "chips",
+    ]);
+    final chips = rawChips
+        .map((c) => BrowseChip.fromMap(c as Map<String, dynamic>))
+        .toList();
 
     final sections = traverseList(data, ["sectionListRenderer", "contents"]);
     dynamic continuation = traverseString(data, ["continuation"]);
@@ -939,6 +953,15 @@ class YTMusic {
       continuation = traverseString(data, ["continuation"]);
     }
 
-    return sections.map(Parser.parseHomeSection).toList();
+    return BrowseHomeResult(
+      chips: chips,
+      sections: sections.map(Parser.parseHomeSection).toList(),
+    );
+  }
+
+  @Deprecated('Use getHome() instead, which also provides available chips.')
+  Future<List<HomeSection>> getHomeSections() async {
+    final result = await getHome();
+    return result.sections;
   }
 }
