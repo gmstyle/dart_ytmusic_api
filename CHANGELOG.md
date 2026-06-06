@@ -1,3 +1,18 @@
+## 1.4.0
+
+**New Features**
+- Added `getHome` method with support for filter chips.
+- Added `getHome` method with support for shelfId, browseId, and browseParams.
+
+**Fixes**
+- Fixed song parser to properly extract videoId.
+- Fixed parsing of artist top songs.
+- Fixed album pagination and song retrieval.
+
+**Enhancements**
+- Added `AlbumBasic` field to `SongFull` type.
+- Added additional data to `SongDetailed`, `VideoDetailed`, and `ArtistDetailed` types.
+
 ## 1.3.6
 **Fix**
 - Critical API crash on non-English systems: Resolved a FormatException that prevented the application from working on operating systems with non-English locales (e.g., Portuguese, Spanish). The issue was caused by an invalid timezone format in API request headers.
