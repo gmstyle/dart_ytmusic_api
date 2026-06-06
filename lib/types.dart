@@ -648,13 +648,24 @@ class UpNextsDetails {
 class HomeSection {
   final String title;
   final List<dynamic> contents;
+  final String? shelfId;
+  final String? browseId;
+  final String? browseParams;
 
-  HomeSection({required this.title, required this.contents});
+  HomeSection({
+    required this.title,
+    required this.contents,
+    this.shelfId,
+    this.browseId,
+    this.browseParams,
+  });
 
-  // Construtor nomeado para criar uma HomeSection a partir de um mapa
   HomeSection.fromMap(Map<String, dynamic> map)
     : title = map['title'] as String,
-      contents = map['contents'] as List<dynamic>;
+      contents = map['contents'] as List<dynamic>,
+      shelfId = map['shelfId'] as String?,
+      browseId = map['browseId'] as String?,
+      browseParams = map['browseParams'] as String?;
 }
 
 class BrowseChip {
@@ -684,6 +695,11 @@ class BrowseChip {
 class BrowseHomeResult {
   final List<BrowseChip> chips;
   final List<HomeSection> sections;
+  final String? backgroundUrl;
 
-  BrowseHomeResult({required this.chips, required this.sections});
+  BrowseHomeResult({
+    required this.chips,
+    required this.sections,
+    this.backgroundUrl,
+  });
 }

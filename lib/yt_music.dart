@@ -923,10 +923,10 @@ class YTMusic {
   /// If [params] is provided (from a [BrowseChip.params]), the home page is
   /// filtered to show content matching that chip (e.g. "Energize", "Relax").
   /// Returns both the available chips and the (optionally filtered) sections.
-  Future<BrowseHomeResult> getHome({String? params}) async {
+  Future<BrowseHomeResult> getHome({String? params, String? browseId}) async {
     final data = await constructRequest(
       "browse",
-      body: {"browseId": feMusicHome, "params": ?params},
+      body: {"browseId": browseId ?? feMusicHome, "params": params},
     );
     _writeRawResponse('getHome', data);
 
@@ -953,9 +953,19 @@ class YTMusic {
       continuation = traverseString(data, ["continuation"]);
     }
 
+    final bgThumbnails = traverseList(data, [
+      "background",
+      "musicThumbnailRenderer",
+      "thumbnail",
+      "thumbnails",
+    ]);
+    final backgroundUrl =
+        bgThumbnails.isNotEmpty ? (bgThumbnails[0] as Map)["url"] as String? : null;
+
     return BrowseHomeResult(
       chips: chips,
       sections: sections.map(Parser.parseHomeSection).toList(),
+      backgroundUrl: backgroundUrl,
     );
   }
 

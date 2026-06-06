@@ -464,8 +464,16 @@ class _HomeTestPageState extends State<HomeTestPage> {
                   itemBuilder: (_, i) {
                     final section = _filteredSections![i];
                     return ExpansionTile(
-                      title: Text(
-                        '${section.title} (${section.contents.length})',
+                      title: Text(section.title),
+                      subtitle: Text(
+                        [
+                          '${section.contents.length} items',
+                          if (section.shelfId != null)
+                            'shelf: ${section.shelfId!.substring(0, 8)}…',
+                          if (section.browseId != null)
+                            '→ ${section.browseId}',
+                        ].join(' · '),
+                        style: const TextStyle(fontSize: 11),
                       ),
                       children: section.contents.take(10).map((item) {
                         return ListTile(
@@ -482,6 +490,18 @@ class _HomeTestPageState extends State<HomeTestPage> {
                   },
                 ),
         ),
+        if (home.backgroundUrl != null)
+          Container(
+            height: 40,
+            color: Colors.grey.shade900,
+            child: Row(
+              children: [
+                Image.network(home.backgroundUrl!, height: 40, width: 70, fit: BoxFit.cover),
+                const SizedBox(width: 8),
+                const Text('Bg image', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
       ],
     );
   }

@@ -73,8 +73,15 @@ class Parser {
       "playlistId",
     ]);
 
+    final headerTitle = data["header"]?["title"];
+    final browseEndpoint = headerTitle?["runs"]?[0]?["navigationEndpoint"]
+        ?["browseEndpoint"];
+
     return HomeSection(
       title: traverseString(data, ["header", "title", "text"]) ?? '',
+      shelfId: data["shelfId"] as String?,
+      browseId: browseEndpoint?["browseId"] as String?,
+      browseParams: browseEndpoint?["params"] as String?,
       contents: traverseList(data, ["contents"])
           .map((item) {
             switch (pageType) {
