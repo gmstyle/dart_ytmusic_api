@@ -928,7 +928,7 @@ class YTMusic {
       "browse",
       body: {"browseId": browseId ?? feMusicHome, "params": params},
     );
-    _writeRawResponse('getHome', data);
+    //_writeRawResponse('getHome', data);
 
     final rawChips = traverseList(data, [
       "sectionListRenderer",
@@ -945,7 +945,7 @@ class YTMusic {
     while (continuation != null) {
       final data = await constructRequest(
         "browse",
-        query: {"continuation": continuation},
+        body: {"continuation": continuation},
       );
       sections.addAll(
         traverseList(data, ["sectionListContinuation", "contents"]),
