@@ -470,8 +470,7 @@ class _HomeTestPageState extends State<HomeTestPage> {
                           '${section.contents.length} items',
                           if (section.shelfId != null)
                             'shelf: ${section.shelfId!.substring(0, 8)}…',
-                          if (section.browseId != null)
-                            '→ ${section.browseId}',
+                          if (section.browseId != null) '→ ${section.browseId}',
                         ].join(' · '),
                         style: const TextStyle(fontSize: 11),
                       ),
@@ -496,9 +495,17 @@ class _HomeTestPageState extends State<HomeTestPage> {
             color: Colors.grey.shade900,
             child: Row(
               children: [
-                Image.network(home.backgroundUrl!, height: 40, width: 70, fit: BoxFit.cover),
+                Image.network(
+                  home.backgroundUrl!,
+                  height: 40,
+                  width: 70,
+                  fit: BoxFit.cover,
+                ),
                 const SizedBox(width: 8),
-                const Text('Bg image', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text(
+                  'Bg image',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
               ],
             ),
           ),

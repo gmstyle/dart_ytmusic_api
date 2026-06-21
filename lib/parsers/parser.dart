@@ -74,8 +74,8 @@ class Parser {
     ]);
 
     final headerTitle = data["header"]?["title"];
-    final browseEndpoint = headerTitle?["runs"]?[0]?["navigationEndpoint"]
-        ?["browseEndpoint"];
+    final browseEndpoint =
+        headerTitle?["runs"]?[0]?["navigationEndpoint"]?["browseEndpoint"];
 
     return HomeSection(
       title: traverseString(data, ["header", "title", "text"]) ?? '',

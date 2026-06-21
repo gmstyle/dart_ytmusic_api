@@ -14,20 +14,106 @@ class PlaylistParser {
         name: traverseString(artist, ["text"]) ?? '',
         artistId: traverseString(artist, ["browseId"]),
       ),
-      videoCount:
-          int.tryParse(
-            traverseList(data, [
-              "tabs",
-              "secondSubtitle",
-              "text",
-            ]).elementAt(2).split(" ").first.replaceAll(",", ""),
-          ) ??
-          0,
+      videoCount: _parseVideoCount(
+        traverseList(data, ["tabs", "secondSubtitle", "text"]),
+      ),
       thumbnails: traverseList(data, [
         "tabs",
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
     );
+  }
+
+  static int _parseVideoCount(List<dynamic> runs) {
+    final strings = runs.map((r) => r.toString()).toList();
+
+    final trackKeywords = [
+      'track',
+      'song',
+      'video',
+      'brano',
+      'tracc',
+      'canzon',
+      'titel',
+      'cancion',
+      'tema',
+      'faix',
+      'músic',
+      'music',
+      'titre',
+      'chanson',
+    ];
+
+    // 1. Try to find a run containing track keywords
+    for (final run in strings) {
+      final lower = run.toLowerCase();
+      if (trackKeywords.any((kw) => lower.contains(kw))) {
+        final digits = RegExp(
+          r'\d+',
+        ).allMatches(run).map((m) => m.group(0)).join('');
+        if (digits.isNotEmpty) {
+          return int.tryParse(digits) ?? 0;
+        }
+      }
+    }
+
+    // 2. Fallback: filter out separators, views, and durations
+    final durationKeywords = [
+      'hour',
+      'ore',
+      'min',
+      'sec',
+      'day',
+      'giorn',
+      'week',
+      'settiman',
+      'month',
+      'mes',
+      'year',
+      'ann',
+      'stund',
+      'tag',
+      'woch',
+      'jahr',
+      'durée',
+      'temps',
+      'temp',
+      '+',
+      'over',
+      'oltre',
+      'mehr',
+      'más',
+      'plus',
+      'mais',
+    ];
+    final viewKeywords = [
+      'view',
+      'visualiz',
+      'aufruf',
+      'reproducc',
+      'vista',
+      'vue',
+      'exib',
+    ];
+
+    for (final run in strings) {
+      final trimmed = run.trim();
+      if (trimmed == '•' || trimmed.isEmpty) continue;
+
+      final lower = trimmed.toLowerCase();
+      if (viewKeywords.any((kw) => lower.contains(kw))) continue;
+      if (durationKeywords.any((kw) => lower.contains(kw))) continue;
+
+      // First remaining run that contains digits is likely the track count
+      final digits = RegExp(
+        r'\d+',
+      ).allMatches(trimmed).map((m) => m.group(0)).join('');
+      if (digits.isNotEmpty) {
+        return int.tryParse(digits) ?? 0;
+      }
+    }
+
+    return 0;
   }
 
   static PlaylistDetailed parseSearchResult(dynamic item) {
