@@ -399,6 +399,63 @@ class _HomeTestPageState extends State<HomeTestPage> {
     await _loadHome(params: chip.params);
   }
 
+  void _showBackgroundPreviewDialog(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Background Image Preview'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image, size: 48, color: Colors.red),
+                        SizedBox(height: 8),
+                        Text('Failed to load image'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SelectableText(
+                url,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('URL copied to clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text('Copy URL'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -490,23 +547,51 @@ class _HomeTestPageState extends State<HomeTestPage> {
                 ),
         ),
         if (home.backgroundUrl != null)
-          Container(
-            height: 40,
-            color: Colors.grey.shade900,
-            child: Row(
-              children: [
-                Image.network(
-                  home.backgroundUrl!,
-                  height: 40,
-                  width: 70,
-                  fit: BoxFit.cover,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Bg image',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
+          InkWell(
+            onTap: () => _showBackgroundPreviewDialog(context, home.backgroundUrl!),
+            child: Container(
+              height: 56,
+              color: Colors.grey.shade900,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      home.backgroundUrl!,
+                      height: 40,
+                      width: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 40,
+                        width: 70,
+                        color: Colors.grey.shade800,
+                        child: const Icon(Icons.broken_image, color: Colors.white30, size: 20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Background Image (Tap to preview)',
+                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          home.backgroundUrl!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.open_in_new, color: Colors.white70, size: 20),
+                ],
+              ),
             ),
           ),
       ],
