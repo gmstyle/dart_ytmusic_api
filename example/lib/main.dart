@@ -658,7 +658,7 @@ Future<List<String>> _searchSongs(String q) async {
   return r
       .map(
         (s) =>
-            '🎵 ${s.name}\n   ${s.artist.name} - ${s.videoId} - ${s.playCount} - ${s.albumId}',
+            '🎵 ${s.name}${_explicitTag(s.isExplicit)}\n   ${s.artist.name} - ${s.videoId} - ${s.playCount} - ${s.albumId}',
       )
       .toList();
 }
@@ -668,7 +668,7 @@ Future<List<String>> _searchVideos(String q) async {
   return r
       .map(
         (v) =>
-            '🎬 ${v.name}\n   ${v.artist.name} - ${v.videoId} - ${v.viewCount ?? 'N/A'}',
+            '🎬 ${v.name}${_explicitTag(v.isExplicit)}\n   ${v.artist.name} - ${v.videoId} - ${v.viewCount ?? 'N/A'}',
       )
       .toList();
 }
@@ -686,13 +686,20 @@ Future<List<String>> _searchArtists(String q) async {
 Future<List<String>> _searchAlbums(String q) async {
   final r = await _api.searchAlbums(q);
   return r
-      .map((a) => '💿 ${a.name}\n   ${a.artist.name} · ${a.albumId}')
+      .map(
+        (a) =>
+            '💿 ${a.name}${_explicitTag(a.isExplicit)}\n   ${a.artist.name} · ${a.albumId}',
+      )
       .toList();
 }
 
 Future<List<String>> _searchPlaylists(String q) async {
   final r = await _api.searchPlaylists(q);
-  return r.map((p) => '📋 ${p.name}\n   ${p.playlistId}').toList();
+  return r
+      .map(
+        (p) => '📋 ${p.name}${_explicitTag(p.isExplicit)}\n   ${p.playlistId}',
+      )
+      .toList();
 }
 
 Future<List<String>> _search(String q) async {
@@ -701,13 +708,25 @@ Future<List<String>> _search(String q) async {
 }
 
 String _resultTitle(SearchResult s) {
-  if (s is SongDetailed) return '${s.name} — ${s.artist.name}';
-  if (s is VideoDetailed) return '${s.name} — ${s.artist.name}';
+  if (s is SongDetailed) {
+    return '${s.name}${_explicitTag(s.isExplicit)} — ${s.artist.name}';
+  }
+  if (s is VideoDetailed) {
+    return '${s.name}${_explicitTag(s.isExplicit)} — ${s.artist.name}';
+  }
   if (s is ArtistDetailed) return s.name;
-  if (s is AlbumDetailed) return '${s.name} — ${s.artist.name}';
-  if (s is PlaylistDetailed) return s.name;
+  if (s is AlbumDetailed) {
+    return '${s.name}${_explicitTag(s.isExplicit)} — ${s.artist.name}';
+  }
+  if (s is PlaylistDetailed) {
+    return '${s.name}${_explicitTag(s.isExplicit)}';
+  }
   return s.toString();
 }
+
+/// Renders the "🔞" marker used throughout this example app whenever a
+/// model's `isExplicit` field (added in dart_ytmusic_api 1.5.0) is `true`.
+String _explicitTag(bool isExplicit) => isExplicit ? ' 🔞' : '';
 
 Future<List<String>> _suggestions(String q) async {
   return _api.getSearchSuggestions(q);
@@ -725,6 +744,7 @@ Future<List<String>> _getSong(String id) async {
     'channelId: ${s.channelId ?? 'N/A'}',
     'publishDate: ${s.publishDate ?? 'N/A'}',
     'category: ${s.category ?? 'N/A'}',
+    'isExplicit: ${s.isExplicit}',
   ];
 }
 
@@ -740,6 +760,9 @@ Future<List<String>> _getVideo(String id) async {
     'category: ${v.category ?? 'N/A'}',
     'uploadDate: ${v.uploadDate ?? 'N/A'}',
     'musicVideoType: ${v.musicVideoType ?? 'N/A'}',
+    // NOTE: getVideo() only calls the /player endpoint, which does not
+    // expose the "Explicit" badge, so this is currently always false.
+    'isExplicit: ${v.isExplicit} (always false, see note in README)',
   ];
 }
 
@@ -762,7 +785,10 @@ Future<List<String>> _getTimedLyrics(String id) async {
 Future<List<String>> _getUpNexts(String id) async {
   final r = await _api.getUpNexts(id);
   return r
-      .map((u) => '${u.title}\n   ${u.artists.name} · ${u.videoId}')
+      .map(
+        (u) =>
+            '${u.title}${_explicitTag(u.isExplicit)}\n   ${u.artists.name} · ${u.videoId}',
+      )
       .toList();
 }
 
@@ -784,42 +810,56 @@ Future<List<String>> _getArtist(String id) async {
 
 Future<List<String>> _getArtistSongs(String id) async {
   final r = await _api.getArtistSongs(id);
-  return r.map((s) => '${s.name} · ${s.videoId}').toList();
+  return r
+      .map((s) => '${s.name}${_explicitTag(s.isExplicit)} · ${s.videoId}')
+      .toList();
 }
 
 Future<List<String>> _getArtistAlbums(String id) async {
   final r = await _api.getArtistAlbums(id);
-  return r.map((a) => '${a.name} · ${a.albumId}').toList();
+  return r
+      .map((a) => '${a.name}${_explicitTag(a.isExplicit)} · ${a.albumId}')
+      .toList();
 }
 
 Future<List<String>> _getArtistSingles(String id) async {
   final r = await _api.getArtistSingles(id);
-  return r.map((s) => '${s.name} · ${s.albumId}').toList();
+  return r
+      .map((s) => '${s.name}${_explicitTag(s.isExplicit)} · ${s.albumId}')
+      .toList();
 }
 
 Future<List<String>> _getAlbum(String id) async {
   final a = await _api.getAlbum(id);
   return [
-    'Title: ${a.name}',
+    'Title: ${a.name}${_explicitTag(a.isExplicit)}',
     'Artist: ${a.artist.name}',
     'Year: ${a.year ?? 'N/A'}',
+    'isExplicit: ${a.isExplicit}',
+    'Description: ${a.description ?? 'N/A'}',
     'Tracks: ${a.songs.length}',
-    ...a.songs.mapIndexed((i, s) => '  ${i + 1}. ${s.name}'),
+    ...a.songs.mapIndexed(
+      (i, s) => '  ${i + 1}. ${s.name}${_explicitTag(s.isExplicit)}',
+    ),
   ];
 }
 
 Future<List<String>> _getPlaylist(String id) async {
   final p = await _api.getPlaylist(id);
   return [
-    'Title: ${p.name}',
+    'Title: ${p.name}${_explicitTag(p.isExplicit)}',
     'Artist: ${p.artist.name}',
     'Videos: ${p.videoCount}',
+    'isExplicit: ${p.isExplicit}',
+    'Description: ${p.description ?? 'N/A'}',
   ];
 }
 
 Future<List<String>> _getPlaylistVideos(String id) async {
   final r = await _api.getPlaylistVideos(id);
-  return r.map((v) => '${v.name} · ${v.videoId}').toList();
+  return r
+      .map((v) => '${v.name}${_explicitTag(v.isExplicit)} · ${v.videoId}')
+      .toList();
 }
 
 extension _Indexed<T> on Iterable<T> {
