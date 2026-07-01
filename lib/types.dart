@@ -143,6 +143,9 @@ class SongDetailed implements SearchResult {
   final String? playCount;
   final String? albumId;
 
+  /// Whether YouTube Music marks this song with the "Explicit" content badge.
+  final bool isExplicit;
+
   SongDetailed({
     required this.type,
     required this.videoId,
@@ -153,6 +156,7 @@ class SongDetailed implements SearchResult {
     required this.thumbnails,
     this.playCount,
     this.albumId,
+    this.isExplicit = false,
   });
 
   SongDetailed.fromMap(Map<String, dynamic> map)
@@ -166,7 +170,8 @@ class SongDetailed implements SearchResult {
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
       playCount = map['playCount'] as String?,
-      albumId = map['albumId'] as String?;
+      albumId = map['albumId'] as String?,
+      isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
 class VideoDetailed implements SearchResult {
@@ -179,6 +184,9 @@ class VideoDetailed implements SearchResult {
   final List<ThumbnailFull> thumbnails;
   final String? viewCount;
 
+  /// Whether YouTube Music marks this video with the "Explicit" content badge.
+  final bool isExplicit;
+
   VideoDetailed({
     required this.type,
     required this.videoId,
@@ -187,6 +195,7 @@ class VideoDetailed implements SearchResult {
     this.duration,
     required this.thumbnails,
     this.viewCount,
+    this.isExplicit = false,
   });
 
   VideoDetailed.fromMap(Map<String, dynamic> map)
@@ -198,7 +207,8 @@ class VideoDetailed implements SearchResult {
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
-      viewCount = map['viewCount'] as String?;
+      viewCount = map['viewCount'] as String?,
+      isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
 class ArtistDetailed implements SearchResult {
@@ -237,6 +247,9 @@ class AlbumDetailed implements SearchResult {
   final int? year;
   final List<ThumbnailFull> thumbnails;
 
+  /// Whether YouTube Music marks this album with the "Explicit" content badge.
+  final bool isExplicit;
+
   AlbumDetailed({
     required this.type,
     required this.albumId,
@@ -245,6 +258,7 @@ class AlbumDetailed implements SearchResult {
     required this.artist,
     this.year,
     required this.thumbnails,
+    this.isExplicit = false,
   });
 
   // Construtor nomeado para criar uma AlbumDetailed a partir de um mapa
@@ -257,7 +271,8 @@ class AlbumDetailed implements SearchResult {
       year = map['year'] as int?,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
 class PlaylistDetailed implements SearchResult {
@@ -268,12 +283,16 @@ class PlaylistDetailed implements SearchResult {
   final ArtistBasic artist;
   final List<ThumbnailFull> thumbnails;
 
+  /// Whether YouTube Music marks this playlist with the "Explicit" content badge.
+  final bool isExplicit;
+
   PlaylistDetailed({
     required this.type,
     required this.playlistId,
     required this.name,
     required this.artist,
     required this.thumbnails,
+    this.isExplicit = false,
   });
 
   // Construtor nomeado para criar uma PlaylistDetailed a partir de um mapa
@@ -284,7 +303,8 @@ class PlaylistDetailed implements SearchResult {
       artist = ArtistBasic.fromMap(map['artist']),
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
 class SongFull implements SearchResult {
@@ -303,6 +323,13 @@ class SongFull implements SearchResult {
   final String? category;
   final AlbumBasic? album;
 
+  /// Whether YouTube Music marks this song with the "Explicit" content badge.
+  ///
+  /// Derived from the `/next` (watch queue) lookup already performed
+  /// internally by [YTMusic.getSong] to resolve [album], since the `/player`
+  /// endpoint itself does not expose explicit-content badges.
+  final bool isExplicit;
+
   SongFull({
     required this.type,
     required this.videoId,
@@ -317,6 +344,7 @@ class SongFull implements SearchResult {
     this.publishDate,
     this.category,
     this.album,
+    this.isExplicit = false,
   });
 
   SongFull.fromMap(Map<String, dynamic> map)
@@ -334,7 +362,8 @@ class SongFull implements SearchResult {
       channelId = map['channelId'] as String?,
       publishDate = map['publishDate'] as String?,
       category = map['category'] as String?,
-      album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null;
+      album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
+      isExplicit = map['isExplicit'] as bool? ?? false;
 
   @override
   String toString() {
@@ -359,6 +388,14 @@ class VideoFull {
   final String? uploadDate;
   final String? musicVideoType;
 
+  /// Whether YouTube Music marks this video with the "Explicit" content badge.
+  ///
+  /// NOTE: unlike [SongFull.isExplicit], [YTMusic.getVideo] only calls the
+  /// `/player` endpoint, which does not expose explicit-content badges, so
+  /// this is currently always `false`. It is kept here for API consistency
+  /// and to allow future population without a breaking change.
+  final bool isExplicit;
+
   VideoFull({
     required this.type,
     required this.videoId,
@@ -375,6 +412,7 @@ class VideoFull {
     this.category,
     this.uploadDate,
     this.musicVideoType,
+    this.isExplicit = false,
   });
 
   VideoFull.fromMap(Map<String, dynamic> map)
@@ -394,7 +432,8 @@ class VideoFull {
       publishDate = map['publishDate'] as String?,
       category = map['category'] as String?,
       uploadDate = map['uploadDate'] as String?,
-      musicVideoType = map['musicVideoType'] as String?;
+      musicVideoType = map['musicVideoType'] as String?,
+      isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
 class ArtistFull implements SearchResult {
@@ -476,6 +515,12 @@ class AlbumFull {
   List<SongDetailed> songs;
   final List<AlbumDetailed> relatedReleases;
 
+  /// Whether YouTube Music marks this album with the "Explicit" content badge.
+  final bool isExplicit;
+
+  /// The album description shown on its YouTube Music page, if any.
+  final String? description;
+
   AlbumFull({
     required this.type,
     required this.albumId,
@@ -486,6 +531,8 @@ class AlbumFull {
     required this.thumbnails,
     required this.songs,
     required this.relatedReleases,
+    this.isExplicit = false,
+    this.description,
   });
 
   AlbumFull.fromMap(Map<String, dynamic> map)
@@ -505,7 +552,9 @@ class AlbumFull {
           ? (map['relatedReleases'] as List)
                 .map((item) => AlbumDetailed.fromMap(item))
                 .toList()
-          : [];
+          : [],
+      isExplicit = map['isExplicit'] as bool? ?? false,
+      description = map['description'] as String?;
 }
 
 class PlaylistFull {
@@ -516,6 +565,12 @@ class PlaylistFull {
   final int videoCount;
   final List<ThumbnailFull> thumbnails;
 
+  /// Whether YouTube Music marks this playlist with the "Explicit" content badge.
+  final bool isExplicit;
+
+  /// The playlist description shown on its YouTube Music page, if any.
+  final String? description;
+
   PlaylistFull({
     required this.type,
     required this.playlistId,
@@ -523,6 +578,8 @@ class PlaylistFull {
     required this.artist,
     required this.videoCount,
     required this.thumbnails,
+    this.isExplicit = false,
+    this.description,
   });
 
   // Construtor nomeado para criar uma PlaylistFull a partir de um mapa
@@ -534,7 +591,9 @@ class PlaylistFull {
       videoCount = map['videoCount'] as int,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      isExplicit = map['isExplicit'] as bool? ?? false,
+      description = map['description'] as String?;
 }
 
 // SearchResult é uma union de vários tipos, então é uma interface
@@ -617,6 +676,9 @@ class UpNextsDetails {
   final int duration;
   final List<ThumbnailFull> thumbnails;
 
+  /// Whether YouTube Music marks this queued song with the "Explicit" content badge.
+  final bool isExplicit;
+
   UpNextsDetails({
     required this.type,
     required this.videoId,
@@ -625,6 +687,7 @@ class UpNextsDetails {
     this.album,
     required this.duration,
     required this.thumbnails,
+    this.isExplicit = false,
   });
 
   // Construtor nomeado para criar uma UpNextsDetails a partir de um mapa
@@ -637,11 +700,12 @@ class UpNextsDetails {
       duration = map['duration'] as int,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
-          .toList();
+          .toList(),
+      isExplicit = map['isExplicit'] as bool? ?? false;
 
   @override
   String toString() {
-    return 'UpNextsDetails(type: $type, videoId: $videoId, title: $title, artists: $artists, album: $album, duration: $duration, thumbnails: $thumbnails)';
+    return 'UpNextsDetails(type: $type, videoId: $videoId, title: $title, artists: $artists, album: $album, duration: $duration, thumbnails: $thumbnails, isExplicit: $isExplicit)';
   }
 }
 

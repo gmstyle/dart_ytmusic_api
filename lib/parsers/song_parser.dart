@@ -4,7 +4,11 @@ import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class SongParser {
-  static SongFull parse(dynamic data, {AlbumBasic? album}) {
+  static SongFull parse(
+    dynamic data, {
+    AlbumBasic? album,
+    bool isExplicit = false,
+  }) {
     return SongFull(
       type: "SONG",
       videoId: traverseString(data, ["videoDetails", "videoId"]) ?? '',
@@ -37,6 +41,7 @@ class SongParser {
         "category",
       ]),
       album: album,
+      isExplicit: isExplicit,
     );
   }
 
@@ -100,6 +105,7 @@ class SongParser {
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       playCount: playCount,
       albumId: albumId,
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -132,6 +138,7 @@ class SongParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -173,6 +180,7 @@ class SongParser {
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       playCount: playCount,
       albumId: albumId,
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -199,6 +207,7 @@ class SongParser {
       album: albumBasic,
       duration: Parser.parseDuration(duration?['text']),
       thumbnails: thumbnails,
+      isExplicit: hasExplicitBadge(item),
     );
   }
 

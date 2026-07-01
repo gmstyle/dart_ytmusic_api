@@ -35,3 +35,6 @@ doc/api/
 .env
 
 # End of https://www.toptal.com/developers/gitignore/api/dart
+
+# Raw Innertube JSON dumps produced by tool/dump_raw.dart
+tool/output/

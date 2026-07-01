@@ -21,7 +21,22 @@ class PlaylistParser {
         "tabs",
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(
+        traverse(data, ["musicResponsiveHeaderRenderer"]),
+      ),
+      description: _extractDescription(data),
     );
+  }
+
+  static String? _extractDescription(dynamic data) {
+    final descriptionShelf = traverseList(data, [
+      "musicDescriptionShelfRenderer",
+    ]);
+    if (descriptionShelf.isEmpty) return null;
+    final runs =
+        descriptionShelf.first['description']?['runs'] as List<dynamic>?;
+    if (runs == null) return null;
+    return runs.map((r) => r['text']?.toString() ?? '').join();
   }
 
   static int _parseVideoCount(List<dynamic> runs) {
@@ -141,6 +156,7 @@ class PlaylistParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -157,6 +173,7 @@ class PlaylistParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -175,6 +192,7 @@ class PlaylistParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(item),
     );
   }
 }

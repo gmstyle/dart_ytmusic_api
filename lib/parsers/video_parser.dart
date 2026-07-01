@@ -81,6 +81,7 @@ class VideoParser {
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       viewCount: viewCount,
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -97,6 +98,7 @@ class VideoParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(item),
     );
   }
 
@@ -152,6 +154,7 @@ class VideoParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      isExplicit: hasExplicitBadge(item),
     );
   }
 }

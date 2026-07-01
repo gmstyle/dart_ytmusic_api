@@ -12,6 +12,7 @@ import 'package:dart_ytmusic_api/parsers/search_parser.dart';
 import 'package:dart_ytmusic_api/parsers/song_parser.dart';
 import 'package:dart_ytmusic_api/parsers/video_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 import 'package:http/http.dart' as http;
 
@@ -478,16 +479,28 @@ class YTMusic {
     final data = await constructRequest("player", body: {"videoId": videoId});
     //_writeRawResponse('getSong', data);
 
-    final album = await _getAlbumFromNext(videoId);
-    final song = SongParser.parse(data, album: album);
+    final nextInfo = await _getCurrentTrackInfoFromNext(videoId);
+    final song = SongParser.parse(
+      data,
+      album: nextInfo.album,
+      isExplicit: nextInfo.isExplicit,
+    );
     if (song.videoId != videoId) {
       throw Exception("Invalid videoId");
     }
     return song;
   }
 
-  /// Calls the `/next` endpoint to extract album info for the current song.
-  Future<AlbumBasic?> _getAlbumFromNext(String videoId) async {
+  /// Calls the `/next` endpoint to extract album info and the "Explicit"
+  /// badge for the current song.
+  ///
+  /// The `/player` endpoint used by [getSong] does not expose the explicit
+  /// content badge, so it is resolved here using the same `/next` (watch
+  /// queue) call that is already made to resolve the album, avoiding an
+  /// extra network request.
+  Future<({AlbumBasic? album, bool isExplicit})> _getCurrentTrackInfoFromNext(
+    String videoId,
+  ) async {
     try {
       final nextData = await constructRequest(
         "next",
@@ -502,9 +515,11 @@ class YTMusic {
           nextData?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer'];
 
       final contents = playlistPanelRenderer?['contents'] as List<dynamic>?;
-      if (contents == null || contents.isEmpty) return null;
+      if (contents == null || contents.isEmpty)
+        return (album: null, isExplicit: false);
 
       final current = contents[0]?['playlistPanelVideoRenderer'];
+      final isExplicit = hasExplicitBadge(current);
       final bylineRuns = current?['longBylineText']?['runs'] as List<dynamic>?;
       if (bylineRuns != null) {
         for (final run in bylineRuns) {
@@ -517,7 +532,10 @@ class YTMusic {
                 run['navigationEndpoint']?['browseEndpoint']?['browseId']
                     as String?;
             if (albumName != null && albumId != null) {
-              return AlbumBasic(name: albumName, albumId: albumId);
+              return (
+                album: AlbumBasic(name: albumName, albumId: albumId),
+                isExplicit: isExplicit,
+              );
             }
           }
         }
@@ -538,13 +556,16 @@ class YTMusic {
                 as String? ??
             current?['title']?['runs']?[0]?['text'] as String?;
         if (name != null) {
-          return AlbumBasic(name: name, albumId: playlistId);
+          return (
+            album: AlbumBasic(name: name, albumId: playlistId),
+            isExplicit: isExplicit,
+          );
         }
       }
 
-      return null;
+      return (album: null, isExplicit: isExplicit);
     } catch (_) {
-      return null;
+      return (album: null, isExplicit: false);
     }
   }
 
@@ -622,6 +643,7 @@ class YTMusic {
         album: album,
         duration: duration,
         thumbnails: thumbnails,
+        isExplicit: hasExplicitBadge(renderer),
       );
     }).toList();
   }

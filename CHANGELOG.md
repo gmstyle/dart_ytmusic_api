@@ -1,3 +1,10 @@
+## 1.5.0
+
+**New Features**
+- Added `isExplicit` field to `SongDetailed`, `SongFull`, `VideoDetailed`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull` and `UpNextsDetails`, reflecting YouTube Music's "Explicit" content badge. Populated for free from data already present in `search`, `browse` (artist/album/playlist/home) and `next` responses; also added to `VideoFull` for API consistency, though it currently always evaluates to `false` since `getVideo` only calls the `/player` endpoint, which does not expose this badge.
+- Added `description` field to `AlbumFull` and `PlaylistFull`, extracted from the same `musicDescriptionShelfRenderer` structure already used for `ArtistFull.description`.
+- Added `tool/dump_raw.dart`, a small CLI utility to dump raw Innertube JSON responses (search/player/next/browse/home) for inspection, formalizing the previously disabled `_writeRawResponse` debug helper.
+
 ## 1.4.0
 
 **New Features**

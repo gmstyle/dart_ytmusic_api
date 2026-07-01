@@ -94,9 +94,10 @@ The following methods are available in the `YTMusic` class:
 
 - `getHomeSections()`: Retrieves the home sections of the music platform.
 
-## Known Issues
+## Data Fields
 
-- **`getPlaylistVideos` is not working as expected.** The method currently returns an "Invalid request" error. This issue is under investigation. 
+- **`isExplicit`**: Available on `SongDetailed`, `SongFull`, `VideoDetailed`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull` and `UpNextsDetails`. Reflects YouTube Music's "Explicit" content badge. Not every context exposes this badge (e.g. some playlists don't), in which case it defaults to `false`. Also present on `VideoFull` for API consistency, but currently always `false` since `getVideo` only calls the `/player` endpoint, which doesn't expose it.
+- **`description`**: Available on `ArtistFull`, `AlbumFull` and `PlaylistFull`, containing the description text shown on the item's YouTube Music page, if any.
 
 ## Contributing
 
