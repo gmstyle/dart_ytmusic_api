@@ -548,7 +548,8 @@ class _HomeTestPageState extends State<HomeTestPage> {
         ),
         if (home.backgroundUrl != null)
           InkWell(
-            onTap: () => _showBackgroundPreviewDialog(context, home.backgroundUrl!),
+            onTap: () =>
+                _showBackgroundPreviewDialog(context, home.backgroundUrl!),
             child: Container(
               height: 56,
               color: Colors.grey.shade900,
@@ -566,7 +567,11 @@ class _HomeTestPageState extends State<HomeTestPage> {
                         height: 40,
                         width: 70,
                         color: Colors.grey.shade800,
-                        child: const Icon(Icons.broken_image, color: Colors.white30, size: 20),
+                        child: const Icon(
+                          Icons.broken_image,
+                          color: Colors.white30,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
@@ -578,18 +583,29 @@ class _HomeTestPageState extends State<HomeTestPage> {
                       children: [
                         const Text(
                           'Background Image (Tap to preview)',
-                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           home.backgroundUrl!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.open_in_new, color: Colors.white70, size: 20),
+                  const Icon(
+                    Icons.open_in_new,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
                 ],
               ),
             ),
