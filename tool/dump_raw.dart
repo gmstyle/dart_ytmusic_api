@@ -49,10 +49,11 @@ void main(List<String> args) async {
   dynamic data;
   switch (endpoint) {
     case 'search':
-      if (arg == null)
+      if (arg == null) {
         throw ArgumentError(
           'search requires a query, e.g. dart run tool/dump_raw.dart search "query"',
         );
+      }
       data = await yt.constructRequest(
         'search',
         body: {'query': arg, 'params': null},
@@ -70,10 +71,11 @@ void main(List<String> args) async {
       );
       break;
     case 'browse':
-      if (arg == null)
+      if (arg == null) {
         throw ArgumentError(
           'browse requires a browseId (artist/album/playlist)',
         );
+      }
       data = await yt.constructRequest('browse', body: {'browseId': arg});
       break;
     case 'home':

@@ -515,8 +515,9 @@ class YTMusic {
           nextData?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer'];
 
       final contents = playlistPanelRenderer?['contents'] as List<dynamic>?;
-      if (contents == null || contents.isEmpty)
+      if (contents == null || contents.isEmpty) {
         return (album: null, isExplicit: false);
+      }
 
       final current = contents[0]?['playlistPanelVideoRenderer'];
       final isExplicit = hasExplicitBadge(current);
