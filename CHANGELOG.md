@@ -11,6 +11,9 @@
 - Added `getMoodCategories`, `getMoodPlaylists` and `getCharts`.
 - `getPlaylist` / `getPlaylistVideos` resolve Explore song-radio ids (`RDAMVM…`) via watch playlist so mood/genre chips return tracks, artwork, and counts.
 
+**Fixes**
+- Fixed `getArtistVideos` empty results: the artist "Show all" videos page is a playlist shelf of `musicResponsiveListItemRenderer` rows, not `musicTwoRowItemRenderer` grid cards.
+
 ## 1.5.0
 
 **New Features**

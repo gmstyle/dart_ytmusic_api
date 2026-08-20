@@ -923,11 +923,7 @@ class YTMusic {
       name: traverseString(artistData, ['header', 'title', 'text']) ?? '',
     );
 
-    final browseBody = traverse(videosCarousels.first, [
-      'moreContentButton',
-      'browseEndpoint',
-    ]);
-    if (browseBody is List || browseBody == null) {
+    List<VideoDetailed> fromCarousels() {
       final allVideos = <VideoDetailed>[];
       for (final carousel in videosCarousels) {
         for (final item in ArtistParser.parseCarouselContents(carousel)) {
@@ -937,14 +933,35 @@ class YTMusic {
       return allVideos;
     }
 
-    final videosData = await constructRequest(
-      'browse',
-      body: browseBody is Map<String, dynamic> ? browseBody : {},
-    );
+    final browseBody = traverse(videosCarousels.first, [
+      'moreContentButton',
+      'browseEndpoint',
+    ]);
+    if (browseBody is! Map<String, dynamic>) {
+      return fromCarousels();
+    }
 
-    return traverseList(videosData, ['musicTwoRowItemRenderer'])
-        .map((item) => VideoParser.parseArtistTopVideo(item, artistBasic))
-        .toList();
+    final videosData = await constructRequest('browse', body: browseBody);
+
+    // "Show all" for artist videos is a playlist shelf of list rows.
+    final listItems = traverseList(videosData, [
+      'musicResponsiveListItemRenderer',
+    ]);
+    if (listItems.isNotEmpty) {
+      return listItems
+          .map(VideoParser.parsePlaylistVideo)
+          .whereType<VideoDetailed>()
+          .toList();
+    }
+
+    final gridItems = traverseList(videosData, ['musicTwoRowItemRenderer']);
+    if (gridItems.isNotEmpty) {
+      return gridItems
+          .map((item) => VideoParser.parseArtistTopVideo(item, artistBasic))
+          .toList();
+    }
+
+    return fromCarousels();
   }
 
   /// Retrieves detailed information about an album given its album ID.
