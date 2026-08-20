@@ -389,11 +389,6 @@ class VideoFull {
   final String? musicVideoType;
 
   /// Whether YouTube Music marks this video with the "Explicit" content badge.
-  ///
-  /// NOTE: unlike [SongFull.isExplicit], [YTMusic.getVideo] only calls the
-  /// `/player` endpoint, which does not expose explicit-content badges, so
-  /// this is currently always `false`. It is kept here for API consistency
-  /// and to allow future population without a breaking change.
   final bool isExplicit;
 
   VideoFull({
@@ -454,6 +449,12 @@ class ArtistFull implements SearchResult {
   final String? description;
   final String? channelId;
 
+  /// Watch playlist id for artist radio (`RDEM…`), from the header radio button.
+  final String? radioId;
+
+  /// Watch playlist id for artist shuffle (`RDAO…`), from the header shuffle button.
+  final String? shuffleId;
+
   ArtistFull({
     required this.artistId,
     required this.name,
@@ -470,6 +471,8 @@ class ArtistFull implements SearchResult {
     this.totalViews,
     this.description,
     this.channelId,
+    this.radioId,
+    this.shuffleId,
   });
 
   ArtistFull.fromMap(Map<String, dynamic> map)
@@ -501,7 +504,9 @@ class ArtistFull implements SearchResult {
       monthlyListeners = map['monthlyListeners'] as String?,
       totalViews = map['totalViews'] as String?,
       description = map['description'] as String?,
-      channelId = map['channelId'] as String?;
+      channelId = map['channelId'] as String?,
+      radioId = map['radioId'] as String?,
+      shuffleId = map['shuffleId'] as String?;
 }
 
 class AlbumFull {
@@ -571,6 +576,9 @@ class PlaylistFull {
   /// The playlist description shown on its YouTube Music page, if any.
   final String? description;
 
+  /// Tracks loaded with the playlist (first page + continuations up to [YTMusic.getPlaylist] limit).
+  final List<VideoDetailed> tracks;
+
   PlaylistFull({
     required this.type,
     required this.playlistId,
@@ -580,6 +588,7 @@ class PlaylistFull {
     required this.thumbnails,
     this.isExplicit = false,
     this.description,
+    this.tracks = const [],
   });
 
   // Construtor nomeado para criar uma PlaylistFull a partir de um mapa
@@ -593,7 +602,12 @@ class PlaylistFull {
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
       isExplicit = map['isExplicit'] as bool? ?? false,
-      description = map['description'] as String?;
+      description = map['description'] as String?,
+      tracks = map['tracks'] != null
+          ? (map['tracks'] as List)
+                .map((item) => VideoDetailed.fromMap(item))
+                .toList()
+          : const [];
 }
 
 // SearchResult é uma union de vários tipos, então é uma interface

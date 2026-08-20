@@ -158,6 +158,18 @@ class ArtistParser {
         "subscribeButtonRenderer",
         "channelId",
       ]),
+      shuffleId: traverseString(data, [
+        "header",
+        "playButton",
+        "watchEndpoint",
+        "playlistId",
+      ]),
+      radioId: traverseString(data, [
+        "header",
+        "startRadioButton",
+        "watchEndpoint",
+        "playlistId",
+      ]),
     );
   }
 
@@ -228,6 +240,25 @@ class ArtistParser {
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+    );
+  }
+
+  static ArtistDetailed parseHomeSection(dynamic item) {
+    final subscribers = traverseString(item, ["subtitle", "text"]);
+    return ArtistDetailed(
+      type: "ARTIST",
+      artistId:
+          traverseString(item, ["title", "browseId"]) ??
+          traverseString(item, ["browseId"]) ??
+          '',
+      name:
+          traverseString(item, ["title", "text"]) ??
+          traverseString(item, ["runs", "text"]) ??
+          '',
+      thumbnails: traverseList(item, [
+        "thumbnails",
+      ]).map((t) => ThumbnailFull.fromMap(t)).toList(),
+      monthlyListeners: subscribers,
     );
   }
 }

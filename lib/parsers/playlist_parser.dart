@@ -1,9 +1,14 @@
+import 'package:dart_ytmusic_api/parsers/video_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class PlaylistParser {
-  static PlaylistFull parse(dynamic data, String playlistId) {
+  static PlaylistFull parse(
+    dynamic data,
+    String playlistId, {
+    List<VideoDetailed> tracks = const [],
+  }) {
     final artist = traverse(data, ["tabs", "straplineTextOne"]);
 
     return PlaylistFull(
@@ -25,7 +30,15 @@ class PlaylistParser {
         traverse(data, ["musicResponsiveHeaderRenderer"]),
       ),
       description: _extractDescription(data),
+      tracks: tracks,
     );
+  }
+
+  static List<VideoDetailed> parseTracks(dynamic data) {
+    return traverseList(data, [
+      "musicPlaylistShelfRenderer",
+      "musicResponsiveListItemRenderer",
+    ]).map(VideoParser.parsePlaylistVideo).whereType<VideoDetailed>().toList();
   }
 
   static String? _extractDescription(dynamic data) {

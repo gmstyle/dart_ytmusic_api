@@ -83,7 +83,8 @@ The following methods are available in the `YTMusic` class:
 - `getSongRelated(String browseId)`: Retrieves related content for a track.
 - `getArtist(artistId: String)`: Retrieves detailed information about an artist given its artist ID.
 - `getAlbum(albumId: String)`: Retrieves detailed information about an album given its album ID.
-- `getPlaylist(playlistId: String)`: Retrieves detailed information about a playlist given its playlist ID.
+- `getPlaylist(playlistId: String, {limit})`: Playlist metadata plus tracks (default limit 100).
+- `getPlaylistVideos(playlistId: String)`: Full track list for a playlist.
 - `getAlbumBrowseId(audioPlaylistId: String)`: Resolves an album audio playlist id (`OLAK5uy_…`) to its browse id (`MPREb_…`).
 - `getPodcast(playlistId: String, {limit})`: Podcast show metadata and episodes (`MPSP…` / `PL…`).
 - `getEpisode(videoId: String)`: Single episode page (`MPED…` / video id).
@@ -100,7 +101,7 @@ The following methods are available in the `YTMusic` class:
 
 **Playlist Methods**
 
-- `getPlaylistVideos(playlistId: String)`: Retrieves a list of videos from a playlist given its playlist ID.
+- `getPlaylistVideos(playlistId: String)`: Full track list (all pages) for a playlist.
 
 **Home Section**
 
@@ -121,8 +122,10 @@ The following methods are available in the `YTMusic` class:
 
 ## Data Fields
 
-- **`isExplicit`**: Available on `SongDetailed`, `SongFull`, `VideoDetailed`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull` and `UpNextsDetails`. Reflects YouTube Music's "Explicit" content badge. Not every context exposes this badge (e.g. some playlists don't), in which case it defaults to `false`. Also present on `VideoFull` for API consistency, but currently always `false` since `getVideo` only calls the `/player` endpoint, which doesn't expose it.
+- **`isExplicit`**: Available on `SongDetailed`, `SongFull`, `VideoDetailed`, `VideoFull`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull` and `UpNextsDetails`. Reflects YouTube Music's "Explicit" content badge. Not every context exposes this badge (e.g. some playlists don't), in which case it defaults to `false`. `getSong` / `getVideo` resolve it via `/next`.
 - **`description`**: Available on `ArtistFull`, `AlbumFull` and `PlaylistFull`, containing the description text shown on the item's YouTube Music page, if any.
+- **`radioId` / `shuffleId`**: On `ArtistFull`, watch-playlist ids for Start radio (`RDEM…`) and Shuffle (`RDAO…`).
+- **`tracks`**: On `PlaylistFull`, loaded with `getPlaylist({limit})` (default 100).
 
 ## Contributing
 

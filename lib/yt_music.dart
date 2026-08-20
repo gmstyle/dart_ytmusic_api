@@ -697,7 +697,8 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
-    final video = VideoParser.parse(data);
+    final nextInfo = await _getCurrentTrackInfoFromNext(videoId);
+    final video = VideoParser.parse(data, isExplicit: nextInfo.isExplicit);
     if (video.videoId != videoId) {
       throw Exception("Invalid videoId");
     }
@@ -971,7 +972,10 @@ class YTMusic {
   }
 
   /// Retrieves detailed information about a playlist given its playlist ID.
-  Future<PlaylistFull> getPlaylist(String playlistId) async {
+  ///
+  /// [limit] caps how many [PlaylistFull.tracks] are loaded (follows
+  /// continuations). Use [getPlaylistVideos] to fetch the full track list.
+  Future<PlaylistFull> getPlaylist(String playlistId, {int limit = 100}) async {
     var id = playlistId;
     if (id.startsWith('VL')) {
       id = id.substring(2);
@@ -982,6 +986,10 @@ class YTMusic {
     if (id.startsWith('RDAMVM') && id.length >= 17) {
       final videoId = id.substring(6);
       final watch = await getWatchPlaylist(videoId: videoId, playlistId: id);
+      final tracks = watch.tracks
+          .map(_watchTrackToVideoDetailed)
+          .take(limit)
+          .toList();
       final first = watch.tracks.isNotEmpty ? watch.tracks.first : null;
       return PlaylistFull(
         type: 'PLAYLIST',
@@ -990,12 +998,14 @@ class YTMusic {
         artist: first?.artist ?? ArtistBasic(name: ''),
         videoCount: watch.tracks.length,
         thumbnails: first?.thumbnails ?? const [],
+        tracks: tracks,
       );
     }
 
     final browseId = 'VL$id';
     final data = await constructRequest("browse", body: {"browseId": browseId});
-    return PlaylistParser.parse(data, browseId);
+    final tracks = await _collectPlaylistTracks(data, limit: limit);
+    return PlaylistParser.parse(data, browseId, tracks: tracks);
   }
 
   /// Retrieves a list of videos from a playlist given its playlist ID.
@@ -1019,15 +1029,26 @@ class YTMusic {
       "browse",
       body: {"browseId": browseId},
     );
-    final songs = traverseList(playlistData, [
-      "musicPlaylistShelfRenderer",
-      "musicResponsiveListItemRenderer",
-    ]);
+    return _collectPlaylistTracks(playlistData);
+  }
+
+  Future<List<VideoDetailed>> _collectPlaylistTracks(
+    dynamic playlistData, {
+    int? limit,
+  }) async {
+    final songs = List<dynamic>.from(
+      traverseList(playlistData, [
+        "musicPlaylistShelfRenderer",
+        "musicResponsiveListItemRenderer",
+      ]),
+    );
     dynamic continuation = traverse(playlistData, ["continuation"]);
-    if (continuation is List && (continuation).isNotEmpty) {
+    if (continuation is List && continuation.isNotEmpty) {
       continuation = continuation[0];
     }
-    while (continuation is String && continuation.isNotEmpty) {
+    while (continuation is String &&
+        continuation.isNotEmpty &&
+        (limit == null || songs.length < limit)) {
       final songsData = await constructRequest(
         "browse",
         query: {"continuation": continuation},
@@ -1038,17 +1059,20 @@ class YTMusic {
       final next = traverse(songsData, ["continuation"]);
       if (next is String) {
         continuation = next;
-      } else if (next is List && (next).isNotEmpty) {
+      } else if (next is List && next.isNotEmpty) {
         continuation = next[0];
       } else {
         break;
       }
     }
 
-    return songs
+    final parsed = songs
         .map(VideoParser.parsePlaylistVideo)
-        .whereType<VideoDetailed>()
-        .toList();
+        .whereType<VideoDetailed>();
+    if (limit != null) {
+      return parsed.take(limit).toList();
+    }
+    return parsed.toList();
   }
 
   VideoDetailed _watchTrackToVideoDetailed(WatchTrack track) {

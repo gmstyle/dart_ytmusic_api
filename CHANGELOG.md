@@ -1,3 +1,11 @@
+## 1.7.0
+
+**New Features**
+- `getVideo` now populates `isExplicit` via the same `/next` call used by `getSong`.
+- `ArtistFull` exposes `radioId` (`RDEM…`) and `shuffleId` (`RDAO…`) from the artist header buttons.
+- `getPlaylist({limit})` returns `PlaylistFull.tracks` (default 100) with continuation support.
+- Home shelves parse each item by its own page type (albums/playlists/artists/songs), so artist carousels are no longer dropped as empty contents.
+
 ## 1.6.0
 
 **New Features**

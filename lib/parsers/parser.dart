@@ -1,4 +1,5 @@
 import 'package:dart_ytmusic_api/parsers/album_parser.dart';
+import 'package:dart_ytmusic_api/parsers/artist_parser.dart';
 import 'package:dart_ytmusic_api/parsers/playlist_parser.dart';
 import 'package:dart_ytmusic_api/parsers/song_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
@@ -61,18 +62,6 @@ class Parser {
   }
 
   static HomeSection parseHomeSection(dynamic data) {
-    final pageType = traverseString(data, [
-      "contents",
-      "title",
-      "browseEndpoint",
-      "pageType",
-    ]);
-    final playlistId = traverseString(data, [
-      "navigationEndpoint",
-      "watchPlaylistEndpoint",
-      "playlistId",
-    ]);
-
     final headerTitle = data["header"]?["title"];
     final browseEndpoint =
         headerTitle?["runs"]?[0]?["navigationEndpoint"]?["browseEndpoint"];
@@ -83,25 +72,64 @@ class Parser {
       browseId: browseEndpoint?["browseId"] as String?,
       browseParams: browseEndpoint?["params"] as String?,
       contents: traverseList(data, ["contents"])
-          .map((item) {
-            switch (pageType) {
-              case 'MUSIC_PAGE_TYPE_ALBUM':
-                return AlbumParser.parseHomeSection(item);
-              case 'MUSIC_PAGE_TYPE_PLAYLIST':
-                return PlaylistParser.parseHomeSection(item);
-              case "":
-                if (playlistId != null) {
-                  return PlaylistParser.parseHomeSection(item);
-                } else {
-                  return SongParser.parseHomeSection(item);
-                }
-              default:
-                return null;
-            }
-          })
-          .where((element) => element != null)
-          .cast<dynamic>()
+          .map(_parseHomeContentItem)
+          .whereType<Object>()
           .toList(),
     );
+  }
+
+  /// Parses one home shelf item by its own primary browse/watch page type.
+  static dynamic _parseHomeContentItem(dynamic item) {
+    final renderer = item is Map
+        ? (item['musicTwoRowItemRenderer'] ??
+              item['musicResponsiveListItemRenderer'] ??
+              item)
+        : item;
+    if (renderer is! Map) return null;
+
+    final pageType = _primaryPageType(renderer);
+    final watchPlaylistId = traverseString(renderer, [
+      "navigationEndpoint",
+      "watchPlaylistEndpoint",
+      "playlistId",
+    ]);
+
+    switch (pageType) {
+      case 'MUSIC_PAGE_TYPE_ALBUM':
+        return AlbumParser.parseHomeSection(item);
+      case 'MUSIC_PAGE_TYPE_PLAYLIST':
+        return PlaylistParser.parseHomeSection(item);
+      case 'MUSIC_PAGE_TYPE_ARTIST':
+      case 'MUSIC_PAGE_TYPE_USER_CHANNEL':
+        return ArtistParser.parseHomeSection(item);
+      default:
+        if (watchPlaylistId != null) {
+          return PlaylistParser.parseHomeSection(item);
+        }
+        // Songs / videos (list rows or two-row watch cards).
+        if (item is Map && item.containsKey('musicResponsiveListItemRenderer')) {
+          return SongParser.parseHomeSection(item);
+        }
+        if (traverseString(renderer, ['watchEndpoint', 'videoId']) != null ||
+            traverseString(renderer, ['videoId']) != null) {
+          return SongParser.parseHomeSection(item);
+        }
+        return null;
+    }
+  }
+
+  /// Page type of the item's primary title/navigation target (not subtitle).
+  static String? _primaryPageType(Map renderer) {
+    final title = renderer['title'];
+    if (title != null) {
+      final fromTitle = traverseString(title, ['pageType']);
+      if (fromTitle != null) return fromTitle;
+    }
+    final nav = renderer['navigationEndpoint'];
+    if (nav != null) {
+      final fromNav = traverseString(nav, ['pageType']);
+      if (fromNav != null) return fromNav;
+    }
+    return null;
   }
 }

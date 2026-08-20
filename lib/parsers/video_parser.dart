@@ -4,7 +4,7 @@ import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class VideoParser {
-  static VideoFull parse(dynamic data) {
+  static VideoFull parse(dynamic data, {bool isExplicit = false}) {
     return VideoFull(
       type: "VIDEO",
       videoId: traverseString(data, ["videoDetails", "videoId"]) ?? '',
@@ -43,6 +43,7 @@ class VideoParser {
         "uploadDate",
       ]),
       musicVideoType: traverseString(data, ["videoDetails", "musicVideoType"]),
+      isExplicit: isExplicit,
     );
   }
 

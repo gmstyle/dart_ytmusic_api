@@ -1077,7 +1077,7 @@ Future<List<String>> _getSong(String id) async {
 Future<List<String>> _getVideo(String id) async {
   final v = await _api.getVideo(id);
   return [
-    'Title: ${v.name}',
+    'Title: ${v.name}${_explicitTag(v.isExplicit)}',
     'Artist: ${v.artist.name}',
     'Duration: ${v.duration}s',
     'videoId: ${v.videoId}',
@@ -1086,9 +1086,7 @@ Future<List<String>> _getVideo(String id) async {
     'category: ${v.category ?? 'N/A'}',
     'uploadDate: ${v.uploadDate ?? 'N/A'}',
     'musicVideoType: ${v.musicVideoType ?? 'N/A'}',
-    // NOTE: getVideo() only calls the /player endpoint, which does not
-    // expose the "Explicit" badge, so this is currently always false.
-    'isExplicit: ${v.isExplicit} (always false, see note in README)',
+    'isExplicit: ${v.isExplicit}',
   ];
 }
 
@@ -1124,6 +1122,8 @@ Future<List<String>> _getArtist(String id) async {
     'Name: ${a.name}',
     'artistId: ${a.artistId}',
     'channelId: ${a.channelId ?? 'N/A'}',
+    'radioId: ${a.radioId ?? 'N/A'}',
+    'shuffleId: ${a.shuffleId ?? 'N/A'}',
     'Top songs: ${a.topSongs.length}',
     'Albums: ${a.topAlbums.length}',
     'Singles: ${a.topSingles.length}',
@@ -1183,8 +1183,12 @@ Future<List<String>> _getPlaylist(String id) async {
     'Title: ${p.name}${_explicitTag(p.isExplicit)}',
     'Artist: ${p.artist.name}',
     'Videos: ${p.videoCount}',
+    'Tracks loaded: ${p.tracks.length}',
     'isExplicit: ${p.isExplicit}',
     'Description: ${p.description ?? 'N/A'}',
+    ...p.tracks
+        .take(10)
+        .map((t) => '  ${t.name}${_explicitTag(t.isExplicit)} · ${t.videoId}'),
   ];
 }
 
