@@ -26,6 +26,8 @@ cd example && flutter run -d linux
 | Get Song Related | `getSongRelated` (via watch playlist related tab) |
 | Get Artist Videos | `getArtistVideos` |
 | Get Album Browse ID | `getAlbumBrowseId` (accepts `MPREb_…` or `OLAK5uy_…`) |
+| Get Podcast | `getPodcast` (`MPSP…` / `PL…`) |
+| Get Episode | `getEpisode` (`MPED…` / video id) |
 | Get User / Videos / Playlists | `getUser`, `getUserVideos`, `getUserPlaylists` |
 | Mood Categories | `getMoodCategories` |
 | Mood Playlists | Pick a category (params loaded live from `getMoodCategories`) |

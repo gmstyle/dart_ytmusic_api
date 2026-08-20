@@ -85,6 +85,8 @@ The following methods are available in the `YTMusic` class:
 - `getAlbum(albumId: String)`: Retrieves detailed information about an album given its album ID.
 - `getPlaylist(playlistId: String)`: Retrieves detailed information about a playlist given its playlist ID.
 - `getAlbumBrowseId(audioPlaylistId: String)`: Resolves an album audio playlist id (`OLAK5uy_…`) to its browse id (`MPREb_…`).
+- `getPodcast(playlistId: String, {limit})`: Podcast show metadata and episodes (`MPSP…` / `PL…`).
+- `getEpisode(videoId: String)`: Single episode page (`MPED…` / video id).
 - `getUser(channelId: String)`: Retrieves a non-artist user channel (videos and playlists).
 - `getUserPlaylists(channelId: String, params: String)`: Full playlist list for a user (`params` from `UserFull.playlistsParams`).
 - `getUserVideos(channelId: String, params: String)`: Full video list for a user (`params` from `UserFull.videosParams`).

@@ -137,6 +137,8 @@ class HomePage extends StatelessWidget {
       _ApiItem('Get Playlist', _getPlaylist),
       _ApiItem('Get Playlist Videos', _getPlaylistVideos),
       _ApiItem('Get Album Browse ID', _getAlbumBrowseId),
+      _ApiItem('Get Podcast', _getPodcast),
+      _ApiItem('Get Episode', _getEpisode),
       _ApiItem('Get User', _getUser),
       _ApiItem('Get User Videos', _getUserVideos),
       _ApiItem('Get User Playlists', _getUserPlaylists),
@@ -155,6 +157,10 @@ class HomePage extends StatelessWidget {
     if (label.contains('Artist')) return 'UC4G-AJa7kn8oumI6TT2WXYw';
     if (label.contains('Album Browse')) return 'MPREb_4OAyJwegLNd';
     if (label.contains('Album')) return 'MPREb_4OAyJwegLNd';
+    if (label.contains('Get Podcast')) {
+      return 'MPSPPLIB4EaahNDRK3xJz5oWXc4ldziESr0Itd';
+    }
+    if (label.contains('Get Episode')) return '8zPGAj21oig';
     if (label.contains('Playlist')) {
       return 'PLtlNphvWba01n19M7iz1lDEBsEXufYVMB';
     }
@@ -1286,6 +1292,38 @@ Future<List<String>> _getAlbumBrowseId(String id) async {
   }
   final browseId = await _api.getAlbumBrowseId(audioId);
   return ['audioPlaylistId: $audioId', 'browseId: ${browseId ?? 'N/A'}'];
+}
+
+Future<List<String>> _getPodcast(String id) async {
+  final p = await _api.getPodcast(id, limit: 30);
+  final desc = (p.description ?? 'N/A').replaceAll('\n', ' ');
+  return [
+    'Name: ${p.name}',
+    'browseId: ${p.browseId}',
+    'Author: ${p.author?.name ?? 'N/A'} (${p.author?.artistId ?? 'N/A'})',
+    'Description: ${desc.length > 160 ? '${desc.substring(0, 160)}…' : desc}',
+    'Episodes: ${p.episodes.length}',
+    ...p.episodes
+        .take(10)
+        .map(
+          (e) =>
+              '  🎧 ${e.name}\n     ${e.duration ?? '?'} · ${e.date ?? ''} · ${e.videoId}',
+        ),
+  ];
+}
+
+Future<List<String>> _getEpisode(String id) async {
+  final e = await _api.getEpisode(id);
+  final desc = (e.description ?? 'N/A').replaceAll('\n', ' ');
+  return [
+    'Title: ${e.name}',
+    'videoId: ${e.videoId}',
+    'browseId: ${e.browseId}',
+    'Date: ${e.date ?? 'N/A'}',
+    'Duration: ${e.duration ?? 'N/A'}',
+    'Podcast: ${e.podcastName ?? 'N/A'} · ${e.podcastId ?? 'N/A'}',
+    'Description: ${desc.length > 200 ? '${desc.substring(0, 200)}…' : desc}',
+  ];
 }
 
 Future<List<String>> _getUser(String id) async {

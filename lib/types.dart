@@ -703,6 +703,75 @@ class NewReleasesResult {
   NewReleasesResult({required this.albums, required this.videos});
 }
 
+/// Episode row on a podcast page (`musicMultiRowListItemRenderer`).
+class PodcastEpisode {
+  final String videoId;
+  final String browseId;
+  final String name;
+  final String? description;
+  final String? duration;
+  final String? date;
+  final int? index;
+  final List<ThumbnailFull> thumbnails;
+
+  PodcastEpisode({
+    required this.videoId,
+    required this.browseId,
+    required this.name,
+    this.description,
+    this.duration,
+    this.date,
+    this.index,
+    required this.thumbnails,
+  });
+}
+
+class PodcastFull {
+  final String type;
+  final String browseId;
+  final String name;
+  final ArtistBasic? author;
+  final String? description;
+  final List<ThumbnailFull> thumbnails;
+  final List<PodcastEpisode> episodes;
+
+  PodcastFull({
+    this.type = 'PODCAST',
+    required this.browseId,
+    required this.name,
+    this.author,
+    this.description,
+    required this.thumbnails,
+    required this.episodes,
+  });
+}
+
+class EpisodeFull {
+  final String type;
+  final String videoId;
+  final String browseId;
+  final String name;
+  final String? date;
+  final String? duration;
+  final String? description;
+  final String? podcastId;
+  final String? podcastName;
+  final List<ThumbnailFull> thumbnails;
+
+  EpisodeFull({
+    this.type = 'EPISODE',
+    required this.videoId,
+    required this.browseId,
+    required this.name,
+    this.date,
+    this.duration,
+    this.description,
+    this.podcastId,
+    this.podcastName,
+    required this.thumbnails,
+  });
+}
+
 class UserFull {
   final String name;
   final String channelId;

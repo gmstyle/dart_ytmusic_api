@@ -1186,6 +1186,62 @@ class YTMusic {
     return match?.group(0);
   }
 
+  /// Podcast show metadata and episodes.
+  ///
+  /// [playlistId] may be a bare playlist id (`PL…`) or a browse id (`MPSP…`).
+  /// Pass [limit] to cap how many episodes are fetched (follows continuations).
+  Future<PodcastFull> getPodcast(String playlistId, {int limit = 100}) async {
+    final browseId = playlistId.startsWith('MPSP')
+        ? playlistId
+        : 'MPSP$playlistId';
+    final data = await constructRequest('browse', body: {'browseId': browseId});
+    final podcast = PodcastParser.parse(data, browseId);
+    final episodes = List<PodcastEpisode>.from(podcast.episodes);
+    var continuation = PodcastParser.continuationToken(data);
+
+    while (continuation != null && episodes.length < limit) {
+      final more = await constructRequest(
+        'browse',
+        query: {'continuation': continuation},
+      );
+      final wrapped = traverseList(more, [
+        'musicShelfContinuation',
+        'contents',
+      ]);
+      if (wrapped.isNotEmpty) {
+        episodes.addAll(PodcastParser.parseEpisodeItems(wrapped));
+      } else {
+        episodes.addAll(
+          traverseList(more, [
+            'musicMultiRowListItemRenderer',
+          ]).whereType<Map>().map(PodcastParser.parseEpisodeItem),
+        );
+      }
+
+      dynamic next = traverse(more, ['continuation']);
+      if (next is List && next.isNotEmpty) next = next[0];
+      continuation = next is String && next.isNotEmpty ? next : null;
+    }
+
+    return PodcastFull(
+      browseId: podcast.browseId,
+      name: podcast.name,
+      author: podcast.author,
+      description: podcast.description,
+      thumbnails: podcast.thumbnails,
+      episodes: episodes.take(limit).toList(),
+    );
+  }
+
+  /// Single podcast episode page.
+  ///
+  /// [videoId] may be a bare video id or a browse id (`MPED…`).
+  Future<EpisodeFull> getEpisode(String videoId) async {
+    final browseId = videoId.startsWith('MPED') ? videoId : 'MPED$videoId';
+    final data = await constructRequest('browse', body: {'browseId': browseId});
+    return PodcastParser.parseEpisode(data, browseId);
+  }
+
   /// Retrieves a non-artist user channel (videos and playlists).
   Future<UserFull> getUser(String channelId) async {
     final data = await constructRequest(

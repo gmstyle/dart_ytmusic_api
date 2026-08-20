@@ -2,6 +2,7 @@
 
 **New Features**
 - Added `searchPodcasts`, `searchEpisodes` and `searchProfiles`, plus `PodcastDetailed`, `EpisodeDetailed` and `ProfileDetailed` search types. Generic `search()` also recognizes podcast, episode and profile results.
+- Added `getPodcast` / `getEpisode` with `PodcastFull`, `PodcastEpisode` and `EpisodeFull` (episode shelf + continuations).
 - Typed search methods accept `limit` and follow Innertube continuations when a filter is set.
 - Added `getNewReleases()` for the New Releases albums and music videos shelves.
 - Added `getAlbumBrowseId(audioPlaylistId)` to resolve `OLAK5uy_…` audio playlist ids to `MPREb_…` album browse ids.
