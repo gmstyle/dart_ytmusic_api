@@ -1,16 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dart_ytmusic_api/enums.dart';
 import 'package:dart_ytmusic_api/parsers/album_parser.dart';
 import 'package:dart_ytmusic_api/parsers/artist_parser.dart';
+import 'package:dart_ytmusic_api/parsers/explore_parser.dart';
 import 'package:dart_ytmusic_api/parsers/parser.dart';
 import 'package:dart_ytmusic_api/parsers/playlist_parser.dart';
+import 'package:dart_ytmusic_api/parsers/podcast_parser.dart';
+import 'package:dart_ytmusic_api/parsers/related_parser.dart';
 import 'package:dart_ytmusic_api/parsers/search_parser.dart';
 import 'package:dart_ytmusic_api/parsers/song_parser.dart';
+import 'package:dart_ytmusic_api/parsers/user_parser.dart';
 import 'package:dart_ytmusic_api/parsers/video_parser.dart';
+import 'package:dart_ytmusic_api/parsers/watch_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
@@ -355,119 +359,143 @@ class YTMusic {
     }
   }
 
-  void _writeRawResponse(String methodName, dynamic data) {
-    final dir = Directory.current.path;
-    final file = File('$dir${Platform.pathSeparator}${methodName}Raw.txt');
-    file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(data));
-  }
-
   /// Retrieves search suggestions for a given query.
   Future<List<String>> getSearchSuggestions(String query) async {
     final response = await constructRequest(
       "music/get_search_suggestions",
       body: {"input": query},
     );
-    //_writeRawResponse('getSearchSuggestions', response);
 
     return traverseList(response, ["query"]).whereType<String>().toList();
   }
 
   /// Performs a search for music with the given query and returns a list of search results.
-  Future<List<SearchResult>> search(String query) async {
-    final searchData = await constructRequest(
-      "search",
-      body: {"query": query, "params": null},
-    );
-    //_writeRawResponse('search', searchData);
-
-    return traverseList(searchData, ["musicResponsiveListItemRenderer"])
+  ///
+  /// [limit] caps how many parsed items to return from the first page
+  /// (generic search is not paginated by YouTube Music).
+  Future<List<SearchResult>> search(String query, {int limit = 20}) async {
+    final items = await _searchRaw(query, null, limit);
+    return items
         .map(SearchParser.parse)
-        .where((e) => e != null)
-        .cast<SearchResult>()
+        .whereType<SearchResult>()
+        .take(limit)
         .toList();
   }
 
   /// Performs a search specifically for songs with the given query and returns a list of song details.
-  Future<List<SongDetailed>> searchSongs(String query) async {
-    final searchData = await constructRequest(
-      "search",
-      body: {
-        "query": query,
-        "params": "Eg-KAQwIARAAGAAgACgAMABqChAEEAMQCRAFEAo%3D",
-      },
-    );
-    //_writeRawResponse('searchSongs', searchData);
-
-    final results = traverseList(searchData, [
-      "musicResponsiveListItemRenderer",
-    ]);
-    final mappedResults = results.map(SongParser.parseSearchResult).toList();
-
-    return mappedResults;
+  Future<List<SongDetailed>> searchSongs(String query, {int limit = 20}) async {
+    final items = await _searchRaw(query, searchParamsSongs, limit);
+    return items.map(SongParser.parseSearchResult).take(limit).toList();
   }
 
   /// Performs a search specifically for videos with the given query and returns a list of video details.
-  Future<List<VideoDetailed>> searchVideos(String query) async {
-    final searchData = await constructRequest(
-      "search",
-      body: {
-        "query": query,
-        "params": "Eg-KAQwIABABGAAgACgAMABqChAEEAMQCRAFEAo%3D",
-      },
-    );
-    //_writeRawResponse('searchVideos', searchData);
-
-    return traverseList(searchData, [
-      "musicResponsiveListItemRenderer",
-    ]).map(VideoParser.parseSearchResult).toList();
+  Future<List<VideoDetailed>> searchVideos(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsVideos, limit);
+    return items.map(VideoParser.parseSearchResult).take(limit).toList();
   }
 
   /// Performs a search specifically for artists with the given query and returns a list of artist details.
-  Future<List<ArtistDetailed>> searchArtists(String query) async {
-    final searchData = await constructRequest(
-      "search",
-      body: {
-        "query": query,
-        "params": "Eg-KAQwIABAAGAAgASgAMABqChAEEAMQCRAFEAo%3D",
-      },
-    );
-    //_writeRawResponse('searchArtists', searchData);
-
-    return traverseList(searchData, [
-      "musicResponsiveListItemRenderer",
-    ]).map(ArtistParser.parseSearchResult).toList();
+  Future<List<ArtistDetailed>> searchArtists(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsArtists, limit);
+    return items.map(ArtistParser.parseSearchResult).take(limit).toList();
   }
 
   /// Performs a search specifically for albums with the given query and returns a list of album details.
-  Future<List<AlbumDetailed>> searchAlbums(String query) async {
-    final searchData = await constructRequest(
-      "search",
-      body: {
-        "query": query,
-        "params": "Eg-KAQwIABAAGAEgACgAMABqChAEEAMQCRAFEAo%3D",
-      },
-    );
-    //_writeRawResponse('searchAlbums', searchData);
-
-    return traverseList(searchData, [
-      "musicResponsiveListItemRenderer",
-    ]).map(AlbumParser.parseSearchResult).toList();
+  Future<List<AlbumDetailed>> searchAlbums(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsAlbums, limit);
+    return items.map(AlbumParser.parseSearchResult).take(limit).toList();
   }
 
   /// Performs a search specifically for playlists with the given query and returns a list of playlist details.
-  Future<List<PlaylistDetailed>> searchPlaylists(String query) async {
-    final searchData = await constructRequest(
-      "search",
-      body: {
-        "query": query,
-        "params": "Eg-KAQwIABAAGAAgACgBMABqChAEEAMQCRAFEAo%3D",
-      },
-    );
-    //_writeRawResponse('searchPlaylists', searchData);
+  Future<List<PlaylistDetailed>> searchPlaylists(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsPlaylists, limit);
+    return items.map(PlaylistParser.parseSearchResult).take(limit).toList();
+  }
 
-    return traverseList(searchData, [
-      "musicResponsiveListItemRenderer",
-    ]).map(PlaylistParser.parseSearchResult).toList();
+  /// Performs a search specifically for podcasts.
+  Future<List<PodcastDetailed>> searchPodcasts(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsPodcasts, limit);
+    return items.map(PodcastParser.parseSearchResult).take(limit).toList();
+  }
+
+  /// Performs a search specifically for podcast episodes.
+  Future<List<EpisodeDetailed>> searchEpisodes(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsEpisodes, limit);
+    return items
+        .map(PodcastParser.parseEpisodeSearchResult)
+        .take(limit)
+        .toList();
+  }
+
+  /// Performs a search specifically for user profiles.
+  Future<List<ProfileDetailed>> searchProfiles(
+    String query, {
+    int limit = 20,
+  }) async {
+    final items = await _searchRaw(query, searchParamsProfiles, limit);
+    return items
+        .map(PodcastParser.parseProfileSearchResult)
+        .take(limit)
+        .toList();
+  }
+
+  Future<List<dynamic>> _searchRaw(
+    String query,
+    String? params,
+    int limit,
+  ) async {
+    final body = <String, dynamic>{'query': query};
+    if (params != null) {
+      body['params'] = params;
+    }
+    final searchData = await constructRequest('search', body: body);
+    final items = List<dynamic>.from(
+      traverseList(searchData, ['musicResponsiveListItemRenderer']),
+    );
+    if (params == null || items.length >= limit) {
+      return items.take(limit).toList();
+    }
+
+    dynamic continuation = traverse(searchData, ['continuation']);
+    if (continuation is List && continuation.isNotEmpty) {
+      continuation = continuation[0];
+    }
+    while (continuation is String &&
+        continuation.isNotEmpty &&
+        items.length < limit) {
+      final more = await constructRequest(
+        'search',
+        query: {'continuation': continuation},
+      );
+      items.addAll(traverseList(more, ['musicResponsiveListItemRenderer']));
+      final next = traverse(more, ['continuation']);
+      if (next is String) {
+        continuation = next;
+      } else if (next is List && next.isNotEmpty) {
+        continuation = next[0];
+      } else {
+        break;
+      }
+    }
+    return items.take(limit).toList();
   }
 
   /// Retrieves detailed information about a song given its video ID.
@@ -477,8 +505,6 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
-    //_writeRawResponse('getSong', data);
-
     final nextInfo = await _getCurrentTrackInfoFromNext(videoId);
     final song = SongParser.parse(
       data,
@@ -570,83 +596,98 @@ class YTMusic {
     }
   }
 
+  /// Retrieves a watch playlist (queue) for a video and/or playlist.
+  Future<WatchPlaylistResult> getWatchPlaylist({
+    String? videoId,
+    String? playlistId,
+    bool radio = false,
+    bool shuffle = false,
+  }) async {
+    if (videoId == null && playlistId == null) {
+      throw Exception('You must provide either a videoId or a playlistId');
+    }
+
+    if (videoId != null && !RegExp(r"^[a-zA-Z0-9-_]{11}$").hasMatch(videoId)) {
+      throw Exception('Invalid videoId');
+    }
+
+    final body = <String, dynamic>{
+      'enablePersistentPlaylistPanel': true,
+      'isAudioOnly': true,
+      'tunerSettingValue': 'AUTOMIX_SETTING_NORMAL',
+    };
+
+    if (videoId != null) {
+      body['videoId'] = videoId;
+    }
+
+    var resolvedPlaylistId = playlistId;
+    if (resolvedPlaylistId == null && videoId != null) {
+      resolvedPlaylistId = 'RDAMVM$videoId';
+    }
+    if (resolvedPlaylistId != null) {
+      body['playlistId'] = resolvedPlaylistId;
+    }
+
+    if (!radio && !shuffle) {
+      body['watchEndpointMusicSupportedConfigs'] = {
+        'watchEndpointMusicConfig': {
+          'hasPersistentPlaylistPanel': true,
+          'musicVideoType': 'MUSIC_VIDEO_TYPE_ATV',
+        },
+      };
+    }
+    if (shuffle && resolvedPlaylistId != null) {
+      body['params'] = 'wAEB8gECKAE%3D';
+    }
+    if (radio) {
+      body['params'] = 'wAEB';
+    }
+
+    final data = await constructRequest('next', body: body);
+    final panel = WatchParser.playlistPanelContents(data);
+    final contents = panel?['contents'] as List<dynamic>?;
+    if (contents == null || contents.isEmpty) {
+      throw Exception('Invalid response structure');
+    }
+
+    final tabBrowseIds = WatchParser.tabBrowseIds(data);
+    return WatchPlaylistResult(
+      tracks: WatchParser.parseWatchPlaylist(contents),
+      playlistId:
+          panel?['playlistId'] as String? ??
+          WatchParser.playlistIdFromContents(contents),
+      lyricsBrowseId: tabBrowseIds['MUSIC_PAGE_TYPE_TRACK_LYRICS'],
+      relatedBrowseId: tabBrowseIds['MUSIC_PAGE_TYPE_TRACK_RELATED'],
+    );
+  }
+
   /// Retrieves a list of up next songs for a given video ID.
   Future<List<UpNextsDetails>> getUpNexts(String videoId) async {
-    if (!RegExp(r"^[a-zA-Z0-9-_]{11}$").hasMatch(videoId)) {
-      throw Exception("Invalid videoId");
-    }
+    final result = await getWatchPlaylist(videoId: videoId);
+    return result.tracks.skip(1).map(_watchTrackToUpNext).toList();
+  }
 
-    final data = await constructRequest(
-      "next",
-      body: {
-        "videoId": videoId,
-        "playlistId": "RDAMVM$videoId",
-        "isAudioOnly": true,
-      },
+  UpNextsDetails _watchTrackToUpNext(WatchTrack track) {
+    return UpNextsDetails(
+      type: 'SONG',
+      videoId: track.videoId,
+      title: track.title,
+      artists: track.artist,
+      album: track.album,
+      duration: track.duration,
+      thumbnails: track.thumbnails,
+      isExplicit: track.isExplicit,
     );
-    //_writeRawResponse('getUpNexts', data);
+  }
 
-    final tabs =
-        data?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['musicQueueRenderer']?['content']?['playlistPanelRenderer']?['contents'];
-
-    if (tabs == null) {
-      throw Exception("Invalid response structure");
+  /// Gets related content for a song from the Related tab browse id.
+  Future<List<RelatedSection>> getSongRelated(String browseId) async {
+    if (browseId.isEmpty) {
+      throw Exception('Invalid browseId');
     }
-
-    final List<dynamic> tabsList = tabs is List ? tabs : [];
-
-    return tabsList.skip(1).map((item) {
-      final renderer = item['playlistPanelVideoRenderer'];
-      final videoId = renderer['videoId'] ?? '';
-      final title = renderer['title']?['runs']?[0]?['text'] ?? '';
-
-      // Parse artist information from longBylineText
-      final longBylineRuns = renderer['longBylineText']?['runs'];
-      final artistName = longBylineRuns?[0]?['text'] ?? '';
-      final artistId =
-          longBylineRuns?[0]?['navigationEndpoint']?['browseEndpoint']?['browseId'];
-
-      // Parse album information by finding MUSIC_PAGE_TYPE_ALBUM in longBylineText.runs
-      AlbumBasic? album;
-      if (longBylineRuns != null) {
-        for (final run in longBylineRuns) {
-          final pageType =
-              run?['navigationEndpoint']?['browseEndpoint']?['browseEndpointContextSupportedConfigs']?['browseEndpointContextMusicConfig']?['pageType']
-                  as String?;
-          if (pageType == 'MUSIC_PAGE_TYPE_ALBUM') {
-            final albumName = run['text'] as String?;
-            final albumId =
-                run['navigationEndpoint']?['browseEndpoint']?['browseId']
-                    as String?;
-            if (albumName != null && albumId != null) {
-              album = AlbumBasic(name: albumName, albumId: albumId);
-              break;
-            }
-          }
-        }
-      }
-
-      // Parse duration
-      final durationText = renderer['lengthText']?['runs']?[0]?['text'];
-      final duration = Parser.parseDuration(durationText) ?? 0;
-
-      // Parse thumbnails
-      final thumbnailsList = renderer['thumbnail']?['thumbnails'];
-      final thumbnails = thumbnailsList is List
-          ? thumbnailsList.map((item) => ThumbnailFull.fromMap(item)).toList()
-          : <ThumbnailFull>[];
-
-      return UpNextsDetails(
-        type: "SONG",
-        videoId: videoId,
-        title: title,
-        artists: ArtistBasic(name: artistName, artistId: artistId),
-        album: album,
-        duration: duration,
-        thumbnails: thumbnails,
-        isExplicit: hasExplicitBadge(renderer),
-      );
-    }).toList();
+    final data = await constructRequest('browse', body: {'browseId': browseId});
+    return RelatedParser.parseSections(data);
   }
 
   /// Retrieves detailed information about a video given its video ID.
@@ -656,8 +697,6 @@ class YTMusic {
     }
 
     final data = await constructRequest("player", body: {"videoId": videoId});
-    //_writeRawResponse('getVideo', data);
-
     final video = VideoParser.parse(data);
     if (video.videoId != videoId) {
       throw Exception("Invalid videoId");
@@ -680,7 +719,6 @@ class YTMusic {
       "browse",
       body: {"browseId": browseId},
     );
-    //_writeRawResponse('getLyrics', lyricsData);
     final lyrics = traverseString(lyricsData, [
       "description",
       "runs",
@@ -712,8 +750,6 @@ class YTMusic {
         clientVersion: androidClientVersion,
       ),
     );
-    //_writeRawResponse('getTimedLyrics', lyricsData);
-
     final timedLyrics = traverse(lyricsData, [
       'contents',
       'type',
@@ -734,7 +770,6 @@ class YTMusic {
   /// Retrieves detailed information about an artist given its artist ID.
   Future<ArtistFull> getArtist(String artistId) async {
     final data = await constructRequest("browse", body: {"browseId": artistId});
-    //_writeRawResponse('getArtist', data);
     return ArtistParser.parse(data, artistId);
   }
 
@@ -758,7 +793,6 @@ class YTMusic {
       "browse",
       body: {"browseId": browseToken},
     );
-    //_writeRawResponse('getArtistSongs', songsData);
     final continueToken = traverse(songsData, ["continuation"]);
     late final Map moreSongsData;
 
@@ -811,8 +845,6 @@ class YTMusic {
       "browse",
       body: browseBody is List ? {} : browseBody,
     );
-    //_writeRawResponse('getArtistAlbums', albumsData);
-
     return [
       ...traverseList(albumsData, ["musicTwoRowItemRenderer"])
           .map(
@@ -855,8 +887,6 @@ class YTMusic {
       "browse",
       body: browseBody is List ? {} : browseBody,
     );
-    //_writeRawResponse('getArtistSingles', singlesData);
-
     return [
       ...traverseList(singlesData, ["musicTwoRowItemRenderer"])
           .map(
@@ -874,41 +904,104 @@ class YTMusic {
     ];
   }
 
+  /// Retrieves a list of videos by a specific artist.
+  Future<List<VideoDetailed>> getArtistVideos(String artistId) async {
+    final artistData = await constructRequest(
+      'browse',
+      body: {'browseId': artistId},
+    );
+
+    final carousels = traverseList(artistData, ['musicCarouselShelfRenderer']);
+    final videosCarousels = ArtistParser.findAllCarousels(
+      carousels,
+      ArtistParser.isVideos,
+    );
+    if (videosCarousels.isEmpty) return [];
+
+    final artistBasic = ArtistBasic(
+      artistId: artistId,
+      name: traverseString(artistData, ['header', 'title', 'text']) ?? '',
+    );
+
+    final browseBody = traverse(videosCarousels.first, [
+      'moreContentButton',
+      'browseEndpoint',
+    ]);
+    if (browseBody is List || browseBody == null) {
+      final allVideos = <VideoDetailed>[];
+      for (final carousel in videosCarousels) {
+        for (final item in ArtistParser.parseCarouselContents(carousel)) {
+          allVideos.add(VideoParser.parseArtistTopVideo(item, artistBasic));
+        }
+      }
+      return allVideos;
+    }
+
+    final videosData = await constructRequest(
+      'browse',
+      body: browseBody is Map<String, dynamic> ? browseBody : {},
+    );
+
+    return traverseList(videosData, ['musicTwoRowItemRenderer'])
+        .map((item) => VideoParser.parseArtistTopVideo(item, artistBasic))
+        .toList();
+  }
+
   /// Retrieves detailed information about an album given its album ID.
   Future<AlbumFull> getAlbum(String albumId) async {
     final data = await constructRequest("browse", body: {"browseId": albumId});
-    //_writeRawResponse('getAlbum', data);
-
     return AlbumParser.parse(data, albumId);
   }
 
   /// Retrieves detailed information about a playlist given its playlist ID.
   Future<PlaylistFull> getPlaylist(String playlistId) async {
-    if (!playlistId.startsWith("VL")) {
-      playlistId = "VL$playlistId";
+    var id = playlistId;
+    if (id.startsWith('VL')) {
+      id = id.substring(2);
     }
 
-    final data = await constructRequest(
-      "browse",
-      body: {"browseId": playlistId},
-    );
-    //_writeRawResponse('getPlaylist', data);
+    // Song-radio chips (RDAMVM…) have no browse playlist header — build
+    // metadata from the watch playlist queue instead.
+    if (id.startsWith('RDAMVM') && id.length >= 17) {
+      final videoId = id.substring(6);
+      final watch = await getWatchPlaylist(videoId: videoId, playlistId: id);
+      final first = watch.tracks.isNotEmpty ? watch.tracks.first : null;
+      return PlaylistFull(
+        type: 'PLAYLIST',
+        playlistId: 'VL$id',
+        name: first?.title ?? id,
+        artist: first?.artist ?? ArtistBasic(name: ''),
+        videoCount: watch.tracks.length,
+        thumbnails: first?.thumbnails ?? const [],
+      );
+    }
 
-    return PlaylistParser.parse(data, playlistId);
+    final browseId = 'VL$id';
+    final data = await constructRequest("browse", body: {"browseId": browseId});
+    return PlaylistParser.parse(data, browseId);
   }
 
   /// Retrieves a list of videos from a playlist given its playlist ID.
   Future<List<VideoDetailed>> getPlaylistVideos(String playlistId) async {
-    if (!playlistId.startsWith("VL")) {
-      playlistId = "VL$playlistId";
+    var id = playlistId;
+    if (id.startsWith('VL')) {
+      id = id.substring(2);
     }
 
+    // Explore mood/genre grids mix curated playlists (RDCLAK5uy_…) with
+    // song-radio chips (RDAMVM + videoId). The latter have no playlist shelf
+    // on browse — load them via /next instead.
+    if (id.startsWith('RDAMVM') && id.length >= 17) {
+      final videoId = id.substring(6);
+      final watch = await getWatchPlaylist(videoId: videoId, playlistId: id);
+      return watch.tracks.map(_watchTrackToVideoDetailed).toList();
+    }
+
+    final browseId = 'VL$id';
     final playlistData = await constructRequest(
       "browse",
-      body: {"browseId": playlistId},
+      body: {"browseId": browseId},
     );
-    //_writeRawResponse('getPlaylistVideos', playlistData);
-
     final songs = traverseList(playlistData, [
       "musicPlaylistShelfRenderer",
       "musicResponsiveListItemRenderer",
@@ -941,6 +1034,18 @@ class YTMusic {
         .toList();
   }
 
+  VideoDetailed _watchTrackToVideoDetailed(WatchTrack track) {
+    return VideoDetailed(
+      type: 'SONG',
+      videoId: track.videoId,
+      name: track.title,
+      artist: track.artist,
+      duration: track.duration,
+      thumbnails: track.thumbnails,
+      isExplicit: track.isExplicit,
+    );
+  }
+
   /// Retrieves the home page sections with optional mood/activity chip filter.
   ///
   /// If [params] is provided (from a [BrowseChip.params]), the home page is
@@ -951,8 +1056,6 @@ class YTMusic {
       "browse",
       body: {"browseId": browseId ?? feMusicHome, "params": params},
     );
-    //_writeRawResponse('getHome', data);
-
     final rawChips = traverseList(data, [
       "sectionListRenderer",
       "header",
@@ -991,6 +1094,116 @@ class YTMusic {
       sections: sections.map(Parser.parseHomeSection).toList(),
       backgroundUrl: backgroundUrl,
     );
+  }
+
+  /// Fetches "Moods & Genres" categories from YouTube Music Explore.
+  Future<MoodCategoriesResult> getMoodCategories() async {
+    final data = await constructRequest(
+      'browse',
+      body: {'browseId': feMusicMoodsAndGenres},
+    );
+    return ExploreParser.parseMoodCategories(data);
+  }
+
+  /// Retrieves playlists for a moods & genres [params] token from [getMoodCategories].
+  ///
+  /// The [params] value must be copied from a live [getMoodCategories] response;
+  /// stale tokens return HTTP 404 from YouTube Music.
+  Future<List<PlaylistDetailed>> getMoodPlaylists(String params) async {
+    if (params.isEmpty) {
+      throw Exception(
+        'params is required — obtain it from getMoodCategories()',
+      );
+    }
+    final data = await constructRequest(
+      'browse',
+      body: {'browseId': feMusicMoodsAndGenresCategory, 'params': params},
+    );
+    return ExploreParser.parseMoodPlaylists(data);
+  }
+
+  /// Gets latest charts: video playlists and top artists for [country] (ISO 3166-1 alpha-2, default `ZZ`).
+  Future<ChartsResult> getCharts({String country = 'ZZ'}) async {
+    final body = <String, dynamic>{'browseId': feMusicCharts};
+    if (country.isNotEmpty) {
+      body['formData'] = {
+        'selectedValues': [country],
+      };
+    }
+    final data = await constructRequest('browse', body: body);
+    return ExploreParser.parseCharts(data, country: country);
+  }
+
+  /// Latest albums/singles and music videos from YouTube Music's New Releases page.
+  Future<NewReleasesResult> getNewReleases() async {
+    final data = await constructRequest(
+      'browse',
+      body: {'browseId': feMusicNewReleases},
+    );
+    return ExploreParser.parseNewReleases(data);
+  }
+
+  /// Resolves an album audio playlist id (`OLAK5uy_…`) to its browse id (`MPREb_…`).
+  Future<String?> getAlbumBrowseId(String audioPlaylistId) async {
+    if (!audioPlaylistId.startsWith('OLAK5uy_')) {
+      throw Exception('audioPlaylistId must start with OLAK5uy_');
+    }
+
+    final uri = Uri.parse(
+      'https://music.youtube.com/playlist',
+    ).replace(queryParameters: {'list': audioPlaylistId});
+    final cookies = await cookieJar.loadForRequest(uri);
+    final cookieString = cookies
+        .map((cookie) => '${cookie.name}=${cookie.value}')
+        .join('; ');
+    const socsCookie = 'SOCS=CAI';
+    final headers = {
+      ..._baseHeaders,
+      'cookie': cookieString.isNotEmpty
+          ? '$cookieString; $socsCookie'
+          : socsCookie,
+    };
+    final response = await _client.get(uri, headers: headers);
+    _saveCookiesFromHeaders(uri, response.headers);
+    final match = RegExp(r'MPREb_[a-zA-Z0-9_-]+').firstMatch(response.body);
+    return match?.group(0);
+  }
+
+  /// Retrieves a non-artist user channel (videos and playlists).
+  Future<UserFull> getUser(String channelId) async {
+    final data = await constructRequest(
+      'browse',
+      body: {'browseId': channelId},
+    );
+    return UserParser.parse(data, channelId);
+  }
+
+  /// Full playlist list for a user. [params] comes from [UserFull.playlistsParams].
+  Future<List<PlaylistDetailed>> getUserPlaylists(
+    String channelId,
+    String params,
+  ) async {
+    final data = await constructRequest(
+      'browse',
+      body: {'browseId': channelId, 'params': params},
+    );
+    final user = UserParser.parse(data, channelId);
+    final fromPage = UserParser.parsePlaylistsGrid(data, channelId, user.name);
+    return fromPage.isNotEmpty ? fromPage : user.playlists;
+  }
+
+  /// Full video list for a user. [params] comes from [UserFull.videosParams].
+  Future<List<VideoDetailed>> getUserVideos(
+    String channelId,
+    String params,
+  ) async {
+    final data = await constructRequest(
+      'browse',
+      body: {'browseId': channelId, 'params': params},
+    );
+    final user = UserParser.parse(data, channelId);
+    final fromPage = UserParser.parseVideosGrid(data, channelId, user.name);
+    return fromPage.isNotEmpty ? fromPage : user.videos;
   }
 
   @Deprecated('Use getHome() instead, which also provides available chips.')

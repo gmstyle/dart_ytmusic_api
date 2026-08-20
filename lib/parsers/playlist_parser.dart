@@ -179,19 +179,45 @@ class PlaylistParser {
 
   static PlaylistDetailed parseHomeSection(dynamic item) {
     final artist = traverse(item, ["subtitle", "runs"]);
+    final watchPlaylistId = traverseString(item, [
+      "watchPlaylistEndpoint",
+      "playlistId",
+    ]);
+    final browseId = traverseString(item, [
+      "navigationEndpoint",
+      "browseEndpoint",
+      "browseId",
+    ]);
+    final navPlaylistId = traverseString(item, [
+      "navigationEndpoint",
+      "playlistId",
+    ]);
+
+    var playlistId = watchPlaylistId ?? navPlaylistId ?? '';
+    if (playlistId.isEmpty && browseId != null) {
+      playlistId = browseId.startsWith('VL') ? browseId.substring(2) : browseId;
+    } else if (playlistId.startsWith('VL')) {
+      playlistId = playlistId.substring(2);
+    }
 
     return PlaylistDetailed(
       type: "PLAYLIST",
-      playlistId:
-          traverseString(item, ["navigationEndpoint", "playlistId"]) ?? '',
+      playlistId: playlistId,
       name: traverseString(item, ["runs", "text"]) ?? '',
       artist: ArtistBasic(
         name: traverseString(artist, ["text"]) ?? '',
         artistId: traverseString(artist, ["browseId"]),
       ),
-      thumbnails: traverseList(item, [
-        "thumbnails",
-      ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
+      thumbnails:
+          traverseList(item, [
+                "thumbnailRenderer",
+                "musicThumbnailRenderer",
+                "thumbnail",
+                "thumbnails",
+              ])
+              .followedBy(traverseList(item, ["thumbnails"]))
+              .map((item) => ThumbnailFull.fromMap(item))
+              .toList(),
       isExplicit: hasExplicitBadge(item),
     );
   }

@@ -114,6 +114,9 @@ class HomePage extends StatelessWidget {
       _ApiItem('Search Artists', _searchArtists),
       _ApiItem('Search Albums', _searchAlbums),
       _ApiItem('Search Playlists', _searchPlaylists),
+      _ApiItem('Search Podcasts', _searchPodcasts),
+      _ApiItem('Search Episodes', _searchEpisodes),
+      _ApiItem('Search Profiles', _searchProfiles),
       _ApiItem('Search (generic)', _search),
       _ApiItem('Suggestions', _suggestions),
     ]),
@@ -123,19 +126,34 @@ class HomePage extends StatelessWidget {
       _ApiItem('Get Lyrics', _getLyrics),
       _ApiItem('Get Timed Lyrics', _getTimedLyrics),
       _ApiItem('Get Up Nexts', _getUpNexts),
+      _ApiItem('Get Watch Playlist', _getWatchPlaylist),
+      _ApiItem('Get Song Related', _getSongRelated),
       _ApiItem('Get Artist', _getArtist),
       _ApiItem('Get Artist Songs', _getArtistSongs),
       _ApiItem('Get Artist Albums', _getArtistAlbums),
       _ApiItem('Get Artist Singles', _getArtistSingles),
+      _ApiItem('Get Artist Videos', _getArtistVideos),
       _ApiItem('Get Album', _getAlbum),
       _ApiItem('Get Playlist', _getPlaylist),
       _ApiItem('Get Playlist Videos', _getPlaylistVideos),
+      _ApiItem('Get Album Browse ID', _getAlbumBrowseId),
+      _ApiItem('Get User', _getUser),
+      _ApiItem('Get User Videos', _getUserVideos),
+      _ApiItem('Get User Playlists', _getUserPlaylists),
+    ]),
+    _ApiGroup('Explore', [
+      _ApiItem('Mood Categories', _getMoodCategories),
+      _ApiItem('Mood Playlists', null),
+      _ApiItem('Charts', _getCharts),
+      _ApiItem('New Releases', _getNewReleases),
     ]),
     _ApiGroup('Browse', [_ApiItem('Home (with chips)', null)]),
   ];
 
   static String _defaultInput(String label) {
+    if (label.contains('User')) return 'UC44hbeRoCZVVMVg5z0FfIww';
     if (label.contains('Artist')) return 'UC4G-AJa7kn8oumI6TT2WXYw';
+    if (label.contains('Album Browse')) return 'MPREb_4OAyJwegLNd';
     if (label.contains('Album')) return 'MPREb_4OAyJwegLNd';
     if (label.contains('Playlist')) {
       return 'PLtlNphvWba01n19M7iz1lDEBsEXufYVMB';
@@ -143,9 +161,16 @@ class HomePage extends StatelessWidget {
     if (label.contains('Song') ||
         label.contains('Video') ||
         label.contains('Lyrics') ||
-        label.contains('Next')) {
+        label.contains('Next') ||
+        label.contains('Watch') ||
+        label.contains('Related')) {
       return 'LDY4Bf8Zwn8';
     }
+    if (label.contains('Charts')) return 'ZZ';
+    if (label.contains('Podcast') || label.contains('Episode')) {
+      return 'serial';
+    }
+    if (label.contains('Profile')) return 'MrBeast';
     return 'Aurora Runaway';
   }
 
@@ -173,6 +198,12 @@ class HomePage extends StatelessWidget {
                   if (item.label == 'Home (with chips)') {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const HomeTestPage()),
+                    );
+                  } else if (item.label == 'Mood Playlists') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MoodPlaylistsPage(),
+                      ),
                     );
                   } else {
                     Navigator.of(context).push(
@@ -358,6 +389,7 @@ class _HomeTestPageState extends State<HomeTestPage> {
   BrowseChip? _selectedChip;
   bool _loading = true;
   String? _error;
+  final List<String> _breadcrumb = ['Home'];
 
   @override
   void initState() {
@@ -365,16 +397,27 @@ class _HomeTestPageState extends State<HomeTestPage> {
     _loadHome();
   }
 
-  Future<void> _loadHome({String? params}) async {
+  Future<void> _loadHome({
+    String? params,
+    String? browseId,
+    String? title,
+  }) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final r = await _api.getHome(params: params);
+      final r = await _api.getHome(params: params, browseId: browseId);
       if (!mounted) return;
       setState(() {
-        _home ??= r;
+        if (browseId == null && params == null) {
+          _home = r;
+          _breadcrumb
+            ..clear()
+            ..add('Home');
+        } else if (title != null) {
+          _breadcrumb.add(title);
+        }
         _filteredSections = r.sections;
         _loading = false;
       });
@@ -384,6 +427,32 @@ class _HomeTestPageState extends State<HomeTestPage> {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _openSection(HomeSection section) async {
+    if (section.browseId != null) {
+      await _loadHome(
+        browseId: section.browseId,
+        params: section.browseParams,
+        title: section.title,
+      );
+      return;
+    }
+    if (section.shelfId != null) {
+      await _loadHome(
+        browseId: feMusicHome,
+        params: section.shelfId,
+        title: section.title,
+      );
+    }
+  }
+
+  void _popBreadcrumb() {
+    if (_breadcrumb.length <= 1) return;
+    setState(() => _breadcrumb.removeLast());
+    if (_breadcrumb.length == 1) {
+      setState(() => _filteredSections = _home?.sections);
     }
   }
 
@@ -462,7 +531,13 @@ class _HomeTestPageState extends State<HomeTestPage> {
       appBar: AppBar(
         backgroundColor: Colors.red,
         foregroundColor: Colors.white,
-        title: const Text('Home with chips'),
+        title: Text(_breadcrumb.join(' › ')),
+        leading: _breadcrumb.length > 1
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _popBreadcrumb,
+              )
+            : null,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -531,6 +606,15 @@ class _HomeTestPageState extends State<HomeTestPage> {
                         ].join(' · '),
                         style: const TextStyle(fontSize: 11),
                       ),
+                      onExpansionChanged: (_) {},
+                      trailing:
+                          (section.browseId != null || section.shelfId != null)
+                          ? IconButton(
+                              icon: const Icon(Icons.open_in_new, size: 18),
+                              tooltip: 'Open shelf',
+                              onPressed: () => _openSection(section),
+                            )
+                          : null,
                       children: section.contents.take(10).map((item) {
                         return ListTile(
                           dense: true,
@@ -611,6 +695,212 @@ class _HomeTestPageState extends State<HomeTestPage> {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─── Mood Playlists Page ──────────────────────────────────────────────────────
+
+class MoodPlaylistsPage extends StatefulWidget {
+  const MoodPlaylistsPage({super.key});
+
+  @override
+  State<MoodPlaylistsPage> createState() => _MoodPlaylistsPageState();
+}
+
+class _MoodPlaylistsPageState extends State<MoodPlaylistsPage> {
+  MoodCategoriesResult? _categories;
+  List<String>? _playlists;
+  String? _selectedCategory;
+  bool _loadingCategories = true;
+  bool _loadingPlaylists = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      _loadingCategories = true;
+      _error = null;
+    });
+    try {
+      final r = await _api.getMoodCategories();
+      if (!mounted) return;
+      setState(() {
+        _categories = r;
+        _loadingCategories = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loadingCategories = false;
+      });
+    }
+  }
+
+  Future<void> _loadPlaylists(MoodCategory category) async {
+    setState(() {
+      _loadingPlaylists = true;
+      _error = null;
+      _selectedCategory = category.title;
+      _playlists = null;
+    });
+    try {
+      final r = await _api.getMoodPlaylists(category.params);
+      if (!mounted) return;
+      setState(() {
+        _playlists = r
+            .map(
+              (p) => '${p.name}${_explicitTag(p.isExplicit)} · ${p.playlistId}',
+            )
+            .toList();
+        _loadingPlaylists = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loadingPlaylists = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewingPlaylists = _playlists != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        leading: viewingPlaylists
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() {
+                  _playlists = null;
+                  _selectedCategory = null;
+                  _error = null;
+                }),
+              )
+            : null,
+        title: Text(
+          _selectedCategory == null
+              ? 'Mood Playlists'
+              : 'Mood: $_selectedCategory',
+        ),
+      ),
+      body: _loadingCategories
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null && _categories == null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            )
+          : viewingPlaylists
+          ? Column(
+              children: [
+                if (_error != null)
+                  Material(
+                    color: Colors.red.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Colors.red.shade900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: _playlists!.isEmpty
+                      ? const Center(child: Text('No playlists'))
+                      : ListView.builder(
+                          itemCount: _playlists!.length,
+                          itemBuilder: (_, i) => ListTile(
+                            dense: true,
+                            title: Text(
+                              _playlists![i],
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                if (_error != null)
+                  Material(
+                    color: Colors.red.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Colors.red.shade900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: ListView(
+                    children: _categories!.sections.entries.expand((section) {
+                      return [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Text(
+                            section.key,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        ...section.value.map(
+                          (c) => ListTile(
+                            dense: true,
+                            title: Text(c.title),
+                            subtitle: Text(
+                              c.params,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing:
+                                _loadingPlaylists &&
+                                    _selectedCategory == c.title
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.chevron_right),
+                            onTap: _loadingPlaylists
+                                ? null
+                                : () => _loadPlaylists(c),
+                          ),
+                        ),
+                      ];
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -702,6 +992,27 @@ Future<List<String>> _searchPlaylists(String q) async {
       .toList();
 }
 
+Future<List<String>> _searchPodcasts(String q) async {
+  final r = await _api.searchPodcasts(q);
+  return r
+      .map((p) => '🎙️ ${p.name}\n   ${p.author ?? 'N/A'} · ${p.browseId}')
+      .toList();
+}
+
+Future<List<String>> _searchEpisodes(String q) async {
+  final r = await _api.searchEpisodes(q);
+  return r
+      .map((e) => '🎧 ${e.name}\n   ${e.podcastName ?? 'N/A'} · ${e.videoId}')
+      .toList();
+}
+
+Future<List<String>> _searchProfiles(String q) async {
+  final r = await _api.searchProfiles(q);
+  return r
+      .map((p) => '👤 ${p.name} ${p.handle ?? ''}\n   ${p.browseId}')
+      .toList();
+}
+
 Future<List<String>> _search(String q) async {
   final r = await _api.search(q);
   return r.map((s) => '[${s.type}] ${_resultTitle(s)}').toList();
@@ -720,6 +1031,15 @@ String _resultTitle(SearchResult s) {
   }
   if (s is PlaylistDetailed) {
     return '${s.name}${_explicitTag(s.isExplicit)}';
+  }
+  if (s is PodcastDetailed) {
+    return '${s.name} — ${s.author ?? s.browseId}';
+  }
+  if (s is EpisodeDetailed) {
+    return '${s.name} — ${s.podcastName ?? s.videoId}';
+  }
+  if (s is ProfileDetailed) {
+    return '${s.name} ${s.handle ?? ''} · ${s.browseId}';
   }
   return s.toString();
 }
@@ -801,10 +1121,17 @@ Future<List<String>> _getArtist(String id) async {
     'Top songs: ${a.topSongs.length}',
     'Albums: ${a.topAlbums.length}',
     'Singles: ${a.topSingles.length}',
+    'Videos: ${a.topVideos.length}',
+    'Featured on: ${a.featuredOn.length}',
+    'Similar artists: ${a.similarArtists.length}',
     'Subscribers: ${a.subscriberCount ?? 'N/A'}',
     'Description: ${a.description ?? 'N/A'}',
     'Monthly Listeners: ${a.monthlyListeners ?? 'N/A'}',
     'Total views: ${a.totalViews ?? 'N/A'}',
+    ...a.topVideos.take(5).map((v) => '  video: ${v.name} · ${v.videoId}'),
+    ...a.similarArtists
+        .take(5)
+        .map((s) => '  similar: ${s.name} · ${s.artistId}'),
   ];
 }
 
@@ -860,6 +1187,140 @@ Future<List<String>> _getPlaylistVideos(String id) async {
   return r
       .map((v) => '${v.name}${_explicitTag(v.isExplicit)} · ${v.videoId}')
       .toList();
+}
+
+Future<List<String>> _getWatchPlaylist(String id) async {
+  final r = await _api.getWatchPlaylist(videoId: id);
+  return [
+    'playlistId: ${r.playlistId ?? 'N/A'}',
+    'lyricsBrowseId: ${r.lyricsBrowseId ?? 'N/A'}',
+    'relatedBrowseId: ${r.relatedBrowseId ?? 'N/A'}',
+    'tracks: ${r.tracks.length}',
+    ...r.tracks
+        .take(20)
+        .map(
+          (t) =>
+              '${t.title}${_explicitTag(t.isExplicit)} · ${t.artist.name} · ${t.videoId}',
+        ),
+  ];
+}
+
+Future<List<String>> _getSongRelated(String id) async {
+  final watch = await _api.getWatchPlaylist(videoId: id);
+  final relatedId = watch.relatedBrowseId;
+  if (relatedId == null) return ['No related browseId for this video'];
+  final sections = await _api.getSongRelated(relatedId);
+  return sections
+      .expand(
+        (s) => [
+          '— ${s.title} (${s.contents.length})',
+          ...s.contents.take(8).map((c) => '  ${_resultTitleOrString(c)}'),
+        ],
+      )
+      .toList();
+}
+
+String _resultTitleOrString(dynamic item) {
+  if (item is SearchResult) return _resultTitle(item);
+  if (item is String) return item;
+  return item.toString();
+}
+
+Future<List<String>> _getArtistVideos(String id) async {
+  final r = await _api.getArtistVideos(id);
+  return r
+      .map((v) => '${v.name}${_explicitTag(v.isExplicit)} · ${v.videoId}')
+      .toList();
+}
+
+Future<List<String>> _getMoodCategories(String _) async {
+  final r = await _api.getMoodCategories();
+  return r.sections.entries
+      .expand(
+        (e) => [
+          '— ${e.key}',
+          ...e.value.map((c) => '  ${c.title} · ${c.params}'),
+        ],
+      )
+      .toList();
+}
+
+Future<List<String>> _getCharts(String country) async {
+  final r = await _api.getCharts(country: country.isEmpty ? 'ZZ' : country);
+  return [
+    'Country: ${r.countries.selected}',
+    'Videos: ${r.videos.length}',
+    if (r.daily != null) 'Daily: ${r.daily!.length}',
+    if (r.weekly != null) 'Weekly: ${r.weekly!.length}',
+    if (r.genres != null) 'Genres: ${r.genres!.length}',
+    'Artists: ${r.artists.length}',
+    ...r.videos.take(5).map((p) => '  chart: ${p.title} · ${p.playlistId}'),
+    ...r.artists
+        .take(5)
+        .map(
+          (a) =>
+              '  artist: ${a.title}${a.rank != null ? ' #${a.rank}' : ''} · ${a.browseId}',
+        ),
+  ];
+}
+
+Future<List<String>> _getNewReleases(String _) async {
+  final r = await _api.getNewReleases();
+  return [
+    'Albums: ${r.albums.length}',
+    ...r.albums
+        .take(10)
+        .map(
+          (a) => '  💿 ${a.name}${_explicitTag(a.isExplicit)} · ${a.albumId}',
+        ),
+    'Videos: ${r.videos.length}',
+    ...r.videos.take(10).map((v) => '  🎬 ${v.name} · ${v.videoId}'),
+  ];
+}
+
+Future<List<String>> _getAlbumBrowseId(String id) async {
+  var audioId = id;
+  if (id.startsWith('MPRE')) {
+    final album = await _api.getAlbum(id);
+    audioId = album.playlistId;
+  }
+  final browseId = await _api.getAlbumBrowseId(audioId);
+  return ['audioPlaylistId: $audioId', 'browseId: ${browseId ?? 'N/A'}'];
+}
+
+Future<List<String>> _getUser(String id) async {
+  final u = await _api.getUser(id);
+  return [
+    'Name: ${u.name}',
+    'channelId: ${u.channelId}',
+    'Subscribers: ${u.subscriberCount ?? 'N/A'}',
+    'Videos: ${u.videos.length}',
+    'Playlists: ${u.playlists.length}',
+    'videosParams: ${u.videosParams ?? 'N/A'}',
+    'playlistsParams: ${u.playlistsParams ?? 'N/A'}',
+    ...u.videos.take(5).map((v) => '  video: ${v.name} · ${v.videoId}'),
+    ...u.playlists
+        .take(5)
+        .map((p) => '  playlist: ${p.name} · ${p.playlistId}'),
+  ];
+}
+
+Future<List<String>> _getUserVideos(String id) async {
+  final u = await _api.getUser(id);
+  if (u.videosParams == null) {
+    return u.videos.map((v) => '${v.name} · ${v.videoId}').toList();
+  }
+  final r = await _api.getUserVideos(id, u.videosParams!);
+  return r.map((v) => '${v.name} · ${v.videoId}').toList();
+}
+
+Future<List<String>> _getUserPlaylists(String id) async {
+  final u = await _api.getUser(id);
+  if (u.playlistsParams == null) {
+    return u.playlists.map((p) => '${p.name} · ${p.playlistId}').toList();
+  }
+  final r = await _api.getUserPlaylists(id, u.playlistsParams!);
+  return r.map((p) => '${p.name} · ${p.playlistId}').toList();
 }
 
 extension _Indexed<T> on Iterable<T> {

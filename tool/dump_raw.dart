@@ -4,20 +4,21 @@
 // YouTube Music, so new/undocumented fields can be discovered and compared
 // against what the parsers in lib/parsers currently extract.
 //
-// This formalizes the same idea as the disabled `_writeRawResponse` calls
-// found throughout lib/yt_music.dart, but as a standalone script that
-// doesn't need to be wired into (and temporarily un-commented from) the
-// library itself.
-//
 // Usage (run from the package root):
 //   dart run tool/dump_raw.dart search "Eminem Kill You"
 //   dart run tool/dump_raw.dart player dQw4w9WgXcQ
 //   dart run tool/dump_raw.dart next dQw4w9WgXcQ
-//   dart run tool/dump_raw.dart browse UCuAXFkgsw1L7xaCfnd5JJOw   # artist/album/playlist browseId
+//   dart run tool/dump_raw.dart browse UCuAXFkgsw1L7xaCfnd5JJOw
 //   dart run tool/dump_raw.dart home
+//   dart run tool/dump_raw.dart suggestions "faded"
+//   dart run tool/dump_raw.dart charts [US|ZZ|...]
+//   dart run tool/dump_raw.dart moods
+//   dart run tool/dump_raw.dart new-releases
+//   dart run tool/dump_raw.dart lyrics dQw4w9WgXcQ
+//   dart run tool/dump_raw.dart related dQw4w9WgXcQ
+//   dart run tool/dump_raw.dart search-filter "Eg-..." "query"
 //
 // Output is written as pretty-printed JSON to tool/output/<endpoint>_<arg>.json
-// (the output/ directory is gitignored and safe to delete at any time).
 import 'dart:convert';
 import 'dart:io';
 
@@ -33,16 +34,50 @@ Future<void> _writeJson(String name, dynamic data) async {
   print('wrote ${file.path}');
 }
 
+Future<String?> _lyricsBrowseId(YTMusic yt, String videoId) async {
+  final next = await yt.constructRequest('next', body: {'videoId': videoId});
+  final tabs =
+      next?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs'];
+  if (tabs is! List) return null;
+  for (final tab in tabs) {
+    if (tab?['tabRenderer']?['unselectable'] != null) continue;
+    final endpoint = tab?['tabRenderer']?['endpoint']?['browseEndpoint'];
+    if (endpoint?['browseEndpointContextSupportedConfigs']?['browseEndpointContextMusicConfig']?['pageType'] ==
+        'MUSIC_PAGE_TYPE_TRACK_LYRICS') {
+      return endpoint['browseId'] as String?;
+    }
+  }
+  return null;
+}
+
+Future<String?> _relatedBrowseId(YTMusic yt, String videoId) async {
+  final next = await yt.constructRequest('next', body: {'videoId': videoId});
+  final tabs =
+      next?['contents']?['singleColumnMusicWatchNextResultsRenderer']?['tabbedRenderer']?['watchNextTabbedResultsRenderer']?['tabs'];
+  if (tabs is! List) return null;
+  for (final tab in tabs) {
+    if (tab?['tabRenderer']?['unselectable'] != null) continue;
+    final endpoint = tab?['tabRenderer']?['endpoint']?['browseEndpoint'];
+    if (endpoint?['browseEndpointContextSupportedConfigs']?['browseEndpointContextMusicConfig']?['pageType'] ==
+        'MUSIC_PAGE_TYPE_TRACK_RELATED') {
+      return endpoint['browseId'] as String?;
+    }
+  }
+  return null;
+}
+
 void main(List<String> args) async {
   if (args.isEmpty) {
     print(
-      'Usage: dart run tool/dump_raw.dart <search|player|next|browse|home> [arg]',
+      'Usage: dart run tool/dump_raw.dart '
+      '<search|player|next|browse|home|suggestions|charts|moods|new-releases|lyrics|related|search-filter> [arg] [query]',
     );
     exit(64);
   }
 
   final endpoint = args[0];
   final arg = args.length > 1 ? args[1] : null;
+  final arg2 = args.length > 2 ? args[2] : null;
 
   final yt = await YTMusic().initialize();
 
@@ -50,13 +85,22 @@ void main(List<String> args) async {
   switch (endpoint) {
     case 'search':
       if (arg == null) {
-        throw ArgumentError(
-          'search requires a query, e.g. dart run tool/dump_raw.dart search "query"',
-        );
+        throw ArgumentError('search requires a query');
       }
       data = await yt.constructRequest(
         'search',
         body: {'query': arg, 'params': null},
+      );
+      break;
+    case 'search-filter':
+      if (arg == null || arg2 == null) {
+        throw ArgumentError(
+          'search-filter requires params and query, e.g. dart run tool/dump_raw.dart search-filter "Eg-..." "query"',
+        );
+      }
+      data = await yt.constructRequest(
+        'search',
+        body: {'query': arg2, 'params': arg},
       );
       break;
     case 'player':
@@ -72,9 +116,7 @@ void main(List<String> args) async {
       break;
     case 'browse':
       if (arg == null) {
-        throw ArgumentError(
-          'browse requires a browseId (artist/album/playlist)',
-        );
+        throw ArgumentError('browse requires a browseId');
       }
       data = await yt.constructRequest('browse', body: {'browseId': arg});
       break;
@@ -84,9 +126,57 @@ void main(List<String> args) async {
         body: {'browseId': feMusicHome},
       );
       break;
+    case 'suggestions':
+      if (arg == null) throw ArgumentError('suggestions requires a query');
+      data = await yt.constructRequest(
+        'music/get_search_suggestions',
+        body: {'input': arg},
+      );
+      break;
+    case 'charts':
+      final country = arg ?? 'ZZ';
+      data = await yt.constructRequest(
+        'browse',
+        body: {
+          'browseId': feMusicCharts,
+          'formData': {
+            'selectedValues': [country],
+          },
+        },
+      );
+      break;
+    case 'moods':
+      data = await yt.constructRequest(
+        'browse',
+        body: {'browseId': feMusicMoodsAndGenres},
+      );
+      break;
+    case 'new-releases':
+      data = await yt.constructRequest(
+        'browse',
+        body: {'browseId': feMusicNewReleases},
+      );
+      break;
+    case 'lyrics':
+      if (arg == null) throw ArgumentError('lyrics requires a videoId');
+      final browseId = await _lyricsBrowseId(yt, arg);
+      if (browseId == null) throw StateError('No lyrics tab for $arg');
+      data = await yt.constructRequest('browse', body: {'browseId': browseId});
+      break;
+    case 'related':
+      if (arg == null) throw ArgumentError('related requires a videoId');
+      final browseId = await _relatedBrowseId(yt, arg);
+      if (browseId == null) throw StateError('No related tab for $arg');
+      data = await yt.constructRequest('browse', body: {'browseId': browseId});
+      break;
     default:
       throw ArgumentError('Unknown endpoint: $endpoint');
   }
 
-  await _writeJson('${endpoint}_${arg ?? 'raw'}', data);
+  final suffix = switch (endpoint) {
+    'search-filter' => '${arg}_${arg2 ?? 'raw'}',
+    'charts' => arg ?? 'ZZ',
+    _ => arg ?? 'raw',
+  };
+  await _writeJson('${endpoint}_$suffix', data);
 }

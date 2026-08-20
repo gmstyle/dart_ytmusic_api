@@ -62,12 +62,15 @@ The following methods are available in the `YTMusic` class:
 **Search**
 
 - `getSearchSuggestions(query: String)`: Retrieves search suggestions for a given query.
-- `search(query: String)`: Performs a general search for music with the given query.
-- `searchSongs(query: String)`: Performs a search specifically for songs.
-- `searchVideos(query: String)`: Performs a search specifically for videos.
-- `searchArtists(query: String)`: Performs a search specifically for artists.
-- `searchAlbums(query: String)`: Performs a search specifically for albums.
-- `searchPlaylists(query: String)`: Performs a search specifically for playlists.
+- `search(query: String, {limit})`: Performs a general search for music with the given query.
+- `searchSongs(query: String, {limit})`: Performs a search specifically for songs.
+- `searchVideos(query: String, {limit})`: Performs a search specifically for videos.
+- `searchArtists(query: String, {limit})`: Performs a search specifically for artists.
+- `searchAlbums(query: String, {limit})`: Performs a search specifically for albums.
+- `searchPlaylists(query: String, {limit})`: Performs a search specifically for playlists.
+- `searchPodcasts(query: String, {limit})`: Performs a search specifically for podcasts.
+- `searchEpisodes(query: String, {limit})`: Performs a search specifically for podcast episodes.
+- `searchProfiles(query: String, {limit})`: Performs a search specifically for user profiles.
 
 **Retrieve Details**
 
@@ -76,15 +79,22 @@ The following methods are available in the `YTMusic` class:
 - `getLyrics(videoId: String)`: Retrieves the lyrics of a song given its video ID.
 - `getTimedLyrics(String videoId)`: Retrieves the timed lyrics (lyrics synchronized with audio playback times) for a song given its video ID.
 - `getUpNexts(String videoId)`: Retrieves a list of suggested up next songs for a given video ID.
+- `getWatchPlaylist({videoId, playlistId, radio, shuffle})`: Retrieves the watch queue playlist.
+- `getSongRelated(String browseId)`: Retrieves related content for a track.
 - `getArtist(artistId: String)`: Retrieves detailed information about an artist given its artist ID.
 - `getAlbum(albumId: String)`: Retrieves detailed information about an album given its album ID.
 - `getPlaylist(playlistId: String)`: Retrieves detailed information about a playlist given its playlist ID.
+- `getAlbumBrowseId(audioPlaylistId: String)`: Resolves an album audio playlist id (`OLAK5uy_…`) to its browse id (`MPREb_…`).
+- `getUser(channelId: String)`: Retrieves a non-artist user channel (videos and playlists).
+- `getUserPlaylists(channelId: String, params: String)`: Full playlist list for a user (`params` from `UserFull.playlistsParams`).
+- `getUserVideos(channelId: String, params: String)`: Full video list for a user (`params` from `UserFull.videosParams`).
 
 **Artist Methods**
 
 - `getArtistSongs(artistId: String)`: Retrieves a list of songs by a specific artist.
 - `getArtistAlbums(artistId: String)`: Retrieves a list of albums by a specific artist.
 - `getArtistSingles(artistId: String)`: Retrieves a list of singles by a specific artist.
+- `getArtistVideos(artistId: String)`: Retrieves a list of videos by a specific artist.
 
 **Playlist Methods**
 
@@ -92,7 +102,20 @@ The following methods are available in the `YTMusic` class:
 
 **Home Section**
 
-- `getHomeSections()`: Retrieves the home sections of the music platform.
+- `getHome({params?, browseId?})`: Retrieves the home page with mood chips and sections.
+- `getHomeSections()`: Deprecated — use `getHome()`.
+
+**Explore**
+
+- `getMoodCategories()`: Moods & Genres category tree.
+- `getMoodPlaylists(params)`: Playlists for a mood category.
+- `getCharts({country})`: Chart video playlists and top artists.
+- `getNewReleases()`: Latest albums/singles and music videos.
+
+**Watch**
+
+- `getWatchPlaylist({videoId?, playlistId?, radio?, shuffle?})`: Full watch queue with lyrics/related browse ids.
+- `getSongRelated(browseId)`: Related tab content for a track.
 
 ## Data Fields
 

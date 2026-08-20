@@ -641,7 +641,89 @@ class PlaylistDetailedSearchResult implements SearchResult {
   PlaylistDetailedSearchResult({required this.playlistDetailed});
 }
 
-// Factory para criar um SearchResult a partir de um mapa
+class PodcastDetailed implements SearchResult {
+  @override
+  final String type;
+  final String browseId;
+  final String name;
+  final String? author;
+  final List<ThumbnailFull> thumbnails;
+
+  PodcastDetailed({
+    required this.type,
+    required this.browseId,
+    required this.name,
+    this.author,
+    required this.thumbnails,
+  });
+}
+
+class EpisodeDetailed implements SearchResult {
+  @override
+  final String type;
+  final String videoId;
+  final String name;
+  final String? date;
+  final String? podcastName;
+  final String? podcastId;
+  final List<ThumbnailFull> thumbnails;
+
+  EpisodeDetailed({
+    required this.type,
+    required this.videoId,
+    required this.name,
+    this.date,
+    this.podcastName,
+    this.podcastId,
+    required this.thumbnails,
+  });
+}
+
+class ProfileDetailed implements SearchResult {
+  @override
+  final String type;
+  final String browseId;
+  final String name;
+  final String? handle;
+  final List<ThumbnailFull> thumbnails;
+
+  ProfileDetailed({
+    required this.type,
+    required this.browseId,
+    required this.name,
+    this.handle,
+    required this.thumbnails,
+  });
+}
+
+class NewReleasesResult {
+  final List<AlbumDetailed> albums;
+  final List<VideoDetailed> videos;
+
+  NewReleasesResult({required this.albums, required this.videos});
+}
+
+class UserFull {
+  final String name;
+  final String channelId;
+  final String? subscriberCount;
+  final List<VideoDetailed> videos;
+  final List<PlaylistDetailed> playlists;
+  final String? videosParams;
+  final String? playlistsParams;
+
+  UserFull({
+    required this.name,
+    required this.channelId,
+    this.subscriberCount,
+    required this.videos,
+    required this.playlists,
+    this.videosParams,
+    this.playlistsParams,
+  });
+}
+
+// Factory per creare un SearchResult a partire da un mapa
 SearchResult createSearchResultFromMap(Map<String, dynamic> map) {
   switch (map['type']) {
     case 'SONG':
@@ -661,6 +743,38 @@ SearchResult createSearchResultFromMap(Map<String, dynamic> map) {
     case 'PLAYLIST':
       return PlaylistDetailedSearchResult(
         playlistDetailed: PlaylistDetailed.fromMap(map),
+      );
+    case 'PODCAST':
+      return PodcastDetailed(
+        type: 'PODCAST',
+        browseId: map['browseId'] as String,
+        name: map['name'] as String,
+        author: map['author'] as String?,
+        thumbnails: (map['thumbnails'] as List)
+            .map((item) => ThumbnailFull.fromMap(item))
+            .toList(),
+      );
+    case 'EPISODE':
+      return EpisodeDetailed(
+        type: 'EPISODE',
+        videoId: map['videoId'] as String,
+        name: map['name'] as String,
+        date: map['date'] as String?,
+        podcastName: map['podcastName'] as String?,
+        podcastId: map['podcastId'] as String?,
+        thumbnails: (map['thumbnails'] as List)
+            .map((item) => ThumbnailFull.fromMap(item))
+            .toList(),
+      );
+    case 'PROFILE':
+      return ProfileDetailed(
+        type: 'PROFILE',
+        browseId: map['browseId'] as String,
+        name: map['name'] as String,
+        handle: map['handle'] as String?,
+        thumbnails: (map['thumbnails'] as List)
+            .map((item) => ThumbnailFull.fromMap(item))
+            .toList(),
       );
     default:
       throw ArgumentError('Tipo inválido para SearchResult: ${map['type']}');
@@ -765,5 +879,118 @@ class BrowseHomeResult {
     required this.chips,
     required this.sections,
     this.backgroundUrl,
+  });
+}
+
+class WatchTrack {
+  final String videoId;
+  final String title;
+  final ArtistBasic artist;
+  final AlbumBasic? album;
+  final int duration;
+  final List<ThumbnailFull> thumbnails;
+  final bool isExplicit;
+  final WatchTrack? counterpart;
+
+  WatchTrack({
+    required this.videoId,
+    required this.title,
+    required this.artist,
+    this.album,
+    required this.duration,
+    required this.thumbnails,
+    this.isExplicit = false,
+    this.counterpart,
+  });
+}
+
+class WatchPlaylistResult {
+  final List<WatchTrack> tracks;
+  final String? playlistId;
+  final String? lyricsBrowseId;
+  final String? relatedBrowseId;
+
+  WatchPlaylistResult({
+    required this.tracks,
+    this.playlistId,
+    this.lyricsBrowseId,
+    this.relatedBrowseId,
+  });
+}
+
+class RelatedSection {
+  final String title;
+  final List<dynamic> contents;
+
+  RelatedSection({required this.title, required this.contents});
+}
+
+class MoodCategory {
+  final String title;
+  final String params;
+
+  MoodCategory({required this.title, required this.params});
+}
+
+class MoodCategoriesResult {
+  final Map<String, List<MoodCategory>> sections;
+
+  MoodCategoriesResult({required this.sections});
+}
+
+class ChartPlaylist {
+  final String title;
+  final String playlistId;
+  final List<ThumbnailFull> thumbnails;
+
+  ChartPlaylist({
+    required this.title,
+    required this.playlistId,
+    required this.thumbnails,
+  });
+}
+
+class ChartArtist {
+  final String title;
+  final String browseId;
+  final String? subscribers;
+  final List<ThumbnailFull> thumbnails;
+  final String? rank;
+  final String? trend;
+
+  ChartArtist({
+    required this.title,
+    required this.browseId,
+    this.subscribers,
+    required this.thumbnails,
+    this.rank,
+    this.trend,
+  });
+}
+
+class ChartsCountries {
+  final String selected;
+  final List<String> options;
+
+  ChartsCountries({required this.selected, required this.options});
+}
+
+class ChartsResult {
+  final ChartsCountries countries;
+  final List<ChartPlaylist> videos;
+  final List<ChartArtist> artists;
+  final List<ChartPlaylist>? daily;
+  final List<ChartPlaylist>? weekly;
+  final List<ChartPlaylist>? genres;
+  final List<ChartPlaylist>? languages;
+
+  ChartsResult({
+    required this.countries,
+    required this.videos,
+    required this.artists,
+    this.daily,
+    this.weekly,
+    this.genres,
+    this.languages,
   });
 }

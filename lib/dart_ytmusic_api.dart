@@ -12,3 +12,8 @@ export './parsers/playlist_parser.dart';
 export './parsers/search_parser.dart';
 export './parsers/song_parser.dart';
 export './parsers/video_parser.dart';
+export './parsers/explore_parser.dart';
+export './parsers/related_parser.dart';
+export './parsers/watch_parser.dart';
+export './parsers/podcast_parser.dart';
+export './parsers/user_parser.dart';

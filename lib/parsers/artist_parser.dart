@@ -93,12 +93,12 @@ class ArtistParser {
 
     final allVideoContents = <dynamic>[];
     for (final c in videosCarousels) {
-      allVideoContents.addAll(_parseCarouselContents(c));
+      allVideoContents.addAll(parseCarouselContents(c));
     }
 
     final allFeaturedContents = <dynamic>[];
     for (final c in featuredCarousels) {
-      allFeaturedContents.addAll(_parseCarouselContents(c));
+      allFeaturedContents.addAll(parseCarouselContents(c));
     }
 
     return ArtistFull(
@@ -114,12 +114,12 @@ class ArtistParser {
           .toList()
           .where((song) => song.videoId.isNotEmpty)
           .toList(),
-      topAlbums: _parseCarouselContents(albumsCarousel)
+      topAlbums: parseCarouselContents(albumsCarousel)
           .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
           .toList()
           .where((album) => album.albumId.isNotEmpty)
           .toList(),
-      topSingles: _parseCarouselContents(singlesCarousel)
+      topSingles: parseCarouselContents(singlesCarousel)
           .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
           .toList()
           .where(
@@ -135,7 +135,7 @@ class ArtistParser {
             (item) => PlaylistParser.parseArtistFeaturedOn(item, artistBasic),
           )
           .toList(),
-      similarArtists: _parseCarouselContents(
+      similarArtists: parseCarouselContents(
         similarCarousel,
       ).map((item) => parseSimilarArtists(item)).toList(),
       subscriberCount: traverseString(data, [
@@ -161,7 +161,7 @@ class ArtistParser {
     );
   }
 
-  static List<dynamic> _parseCarouselContents(dynamic carousel) {
+  static List<dynamic> parseCarouselContents(dynamic carousel) {
     if (carousel is! Map) return [];
     final contents = carousel['contents'];
     return contents is List ? contents : [];

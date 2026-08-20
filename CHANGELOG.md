@@ -1,3 +1,16 @@
+## 1.6.0
+
+**New Features**
+- Added `searchPodcasts`, `searchEpisodes` and `searchProfiles`, plus `PodcastDetailed`, `EpisodeDetailed` and `ProfileDetailed` search types. Generic `search()` also recognizes podcast, episode and profile results.
+- Typed search methods accept `limit` and follow Innertube continuations when a filter is set.
+- Added `getNewReleases()` for the New Releases albums and music videos shelves.
+- Added `getAlbumBrowseId(audioPlaylistId)` to resolve `OLAK5uy_…` audio playlist ids to `MPREb_…` album browse ids.
+- Added `getUser`, `getUserPlaylists` and `getUserVideos` for non-artist channel pages.
+- Added `getWatchPlaylist` and `getSongRelated`.
+- Added `getArtistVideos`.
+- Added `getMoodCategories`, `getMoodPlaylists` and `getCharts`.
+- `getPlaylist` / `getPlaylistVideos` resolve Explore song-radio ids (`RDAMVM…`) via watch playlist so mood/genre chips return tracks, artwork, and counts.
+
 ## 1.5.0
 
 **New Features**
