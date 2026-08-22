@@ -1,3 +1,5 @@
+// ignore_for_file: unintended_html_in_doc_comment
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dart_ytmusic_api/dart_ytmusic_api.dart';
@@ -915,8 +917,8 @@ class _MoodPlaylistsPageState extends State<MoodPlaylistsPage> {
 
 /// Extracts a copyable ID from a result string.
 /// Handles two formats:
-///   "🎵 Name\n   Artist · <id>"  → returns the part after the last " · "
-///   "videoId: <id>"              → returns the part after ": " when it has no spaces
+///   "🎵 Name\n   Artist · `<id>"  → returns the part after the last " · "
+///   "videoId: `<id>"              → returns the part after ": " when it has no spaces
 String? _extractCopyableId(String text) {
   final dotIdx = text.lastIndexOf(' · ');
   if (dotIdx != -1) {
