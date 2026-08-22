@@ -50,6 +50,90 @@ class PodcastParser {
     ]).map((t) => ThumbnailFull.fromMap(t)).toList();
   }
 
+  /// Podcast show card on a home shelf (`musicTwoRowItemRenderer`).
+  static PodcastDetailed parseHomeSection(dynamic item) {
+    final renderer = item is Map
+        ? (item['musicTwoRowItemRenderer'] ?? item)
+        : item;
+    if (renderer is! Map) {
+      return PodcastDetailed(
+        type: 'PODCAST',
+        browseId: '',
+        name: '',
+        thumbnails: const [],
+      );
+    }
+
+    final browseId =
+        traverseString(renderer, [
+          'title',
+          'navigationEndpoint',
+          'browseEndpoint',
+          'browseId',
+        ]) ??
+        _directBrowseId(renderer) ??
+        '';
+
+    return PodcastDetailed(
+      type: 'PODCAST',
+      browseId: browseId,
+      name:
+          traverseString(renderer, ['title', 'text']) ??
+          _runsText(renderer['title']) ??
+          '',
+      author: _runsText(renderer['subtitle']),
+      thumbnails: _thumbnails(renderer),
+    );
+  }
+
+  /// Podcast episode row on a filtered home shelf (`musicMultiRowListItemRenderer`).
+  static EpisodeDetailed parseHomeEpisode(dynamic item) {
+    final renderer = item is Map
+        ? (item['musicMultiRowListItemRenderer'] ?? item)
+        : item;
+    if (renderer is! Map) {
+      return EpisodeDetailed(
+        type: 'EPISODE',
+        videoId: '',
+        name: '',
+        thumbnails: const [],
+      );
+    }
+
+    final videoId =
+        traverseString(renderer, ['onTap', 'watchEndpoint', 'videoId']) ??
+        traverseString(renderer, ['watchEndpoint', 'videoId']) ??
+        '';
+
+    String? podcastName;
+    String? podcastId;
+    final secondTitle = renderer['secondTitle'];
+    if (secondTitle is Map) {
+      final runs = secondTitle['runs'];
+      if (runs is List) {
+        for (final run in runs) {
+          if (run is! Map) continue;
+          podcastName ??= traverseString(run, ['text']);
+          podcastId ??= traverseString(run, [
+            'navigationEndpoint',
+            'browseEndpoint',
+            'browseId',
+          ]);
+        }
+      }
+    }
+
+    return EpisodeDetailed(
+      type: 'EPISODE',
+      videoId: videoId,
+      name: _runsText(renderer['title']) ?? '',
+      date: _dateFromSubtitle(renderer['subtitle']),
+      podcastName: podcastName,
+      podcastId: podcastId,
+      thumbnails: _thumbnails(renderer),
+    );
+  }
+
   static PodcastDetailed parseSearchResult(dynamic item) {
     final columns = traverseList(item, [
       'flexColumns',

@@ -1,6 +1,7 @@
 import 'package:dart_ytmusic_api/parsers/album_parser.dart';
 import 'package:dart_ytmusic_api/parsers/artist_parser.dart';
 import 'package:dart_ytmusic_api/parsers/playlist_parser.dart';
+import 'package:dart_ytmusic_api/parsers/podcast_parser.dart';
 import 'package:dart_ytmusic_api/parsers/song_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
@@ -71,15 +72,18 @@ class Parser {
       shelfId: data["shelfId"] as String?,
       browseId: browseEndpoint?["browseId"] as String?,
       browseParams: browseEndpoint?["params"] as String?,
-      contents: traverseList(data, ["contents"])
-          .map(_parseHomeContentItem)
-          .whereType<Object>()
-          .toList(),
+      contents: traverseList(data, [
+        "contents",
+      ]).map(_parseHomeContentItem).whereType<Object>().toList(),
     );
   }
 
   /// Parses one home shelf item by its own primary browse/watch page type.
   static dynamic _parseHomeContentItem(dynamic item) {
+    if (item is Map && item.containsKey('musicMultiRowListItemRenderer')) {
+      return PodcastParser.parseHomeEpisode(item);
+    }
+
     final renderer = item is Map
         ? (item['musicTwoRowItemRenderer'] ??
               item['musicResponsiveListItemRenderer'] ??
@@ -102,12 +106,15 @@ class Parser {
       case 'MUSIC_PAGE_TYPE_ARTIST':
       case 'MUSIC_PAGE_TYPE_USER_CHANNEL':
         return ArtistParser.parseHomeSection(item);
+      case 'MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE':
+        return PodcastParser.parseHomeSection(item);
       default:
         if (watchPlaylistId != null) {
           return PlaylistParser.parseHomeSection(item);
         }
         // Songs / videos (list rows or two-row watch cards).
-        if (item is Map && item.containsKey('musicResponsiveListItemRenderer')) {
+        if (item is Map &&
+            item.containsKey('musicResponsiveListItemRenderer')) {
           return SongParser.parseHomeSection(item);
         }
         if (traverseString(renderer, ['watchEndpoint', 'videoId']) != null ||
