@@ -1,3 +1,8 @@
+## 1.7.1
+
+**Fixes**
+- Fixed podcast shows and episodes on home shelves via `PodcastParser.parseHomeEpisode`, `parseHomeSection`, and parser routing for `musicMultiRowListItemRenderer`.
+
 ## 1.7.0
 
 **New Features**
