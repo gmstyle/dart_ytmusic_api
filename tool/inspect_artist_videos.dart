@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_ytmusic_api/dart_ytmusic_api.dart';
-import 'package:dart_ytmusic_api/parsers/artist_parser.dart';
-import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 void main(List<String> args) async {
   final yt = YTMusic();
