@@ -2,6 +2,8 @@
 
 Manual tester for every public method in `dart_ytmusic_api`. Use it to verify API responses against real YouTube Music data.
 
+Default search/song/album/artist inputs are set to **ANTIDROGA** (Emma & Fabri Fibra) so multiple credited artists are visible immediately (`artists` / `ArtistBasic.formatNames`).
+
 ## Run
 
 From this directory:
@@ -21,7 +23,10 @@ cd example && flutter run -d linux
 
 | Menu item | API method |
 |-----------|------------|
-| Search * | `searchSongs`, `searchVideos`, `searchPodcasts`, `searchEpisodes`, `searchProfiles`, … |
+| Search * | `searchSongs`, `searchVideos`, `searchPodcasts`, `searchEpisodes`, `searchProfiles`, … (default query `ANTIDROGA`) |
+| Get Song / Watch / Up Nexts | `getSong`, `getWatchPlaylist`, `getUpNexts` (default `noOdrqwqft0`) |
+| Get Album | `getAlbum` (default `MPREb_L3vxjEHJMsL`) |
+| Get Artist * | `getArtist`, `getArtistSongs`, `getArtistVideos`, … (default Emma `UCzH13CnhFKwTJ1i0A2394ew`) |
 | Get Watch Playlist | `getWatchPlaylist` |
 | Get Song Related | `getSongRelated` (via watch playlist related tab) |
 | Get Artist Videos | `getArtistVideos` |

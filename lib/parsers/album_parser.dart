@@ -1,5 +1,6 @@
 import 'package:dart_ytmusic_api/parsers/song_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
@@ -10,11 +11,21 @@ class AlbumParser {
       name: traverseString(data, ["tabs", "title", "text"]) ?? '',
     );
 
-    final artistData = traverse(data, ["tabs", "straplineTextOne", "runs"]);
-    final artistBasic = ArtistBasic(
-      artistId: traverseString(artistData, ["browseId"]),
-      name: traverseString(artistData, ["text"]) ?? '',
-    );
+    final artists = parseArtistsFromStrapline(data);
+    final albumArtists = artists.isNotEmpty
+        ? artists
+        : [
+            ArtistBasic(
+              artistId: traverseString(data, [
+                "tabs",
+                "straplineTextOne",
+                "browseId",
+              ]),
+              name:
+                  traverseString(data, ["tabs", "straplineTextOne", "text"]) ??
+                  '',
+            ),
+          ];
 
     final thumbnails = traverseList(data, [
       "background",
@@ -27,14 +38,14 @@ class AlbumParser {
       albumId: albumId,
       playlistId:
           traverseString(data, ["musicPlayButtonRenderer", "playlistId"]) ?? '',
-      artist: artistBasic,
+      artists: albumArtists,
       year: processYear(traverseList(data, ["tabs", "subtitle", "text"]).last),
       thumbnails: thumbnails,
       songs: traverseList(data, ["musicResponsiveListItemRenderer"])
           .map(
             (item) => SongParser.parseAlbumSong(
               item,
-              artistBasic,
+              albumArtists,
               albumBasic,
               thumbnails,
             ),
@@ -80,7 +91,7 @@ class AlbumParser {
       "subtitle",
       "runs",
     ]).expand((e) => e is List ? e : [e]).toList();
-    final artistRun = subtitleRuns.firstWhere(isArtist, orElse: () => null);
+    final artists = parseArtistRuns(subtitleRuns);
 
     final albumId =
         traverseString(item, ["navigationEndpoint", "browseId"]) ?? '';
@@ -92,10 +103,7 @@ class AlbumParser {
       albumId: albumId,
       playlistId: playlistId,
       name: traverseString(item, ["title", "text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artistRun, ["text"]) ?? '',
-        artistId: traverseString(artistRun, ["browseId"]),
-      ),
+      artists: artists,
       year: null,
       thumbnails: traverseList(item, [
         "thumbnails",
@@ -110,9 +118,22 @@ class AlbumParser {
       "runs",
     ]).expand((e) => e is List ? e : [e]).toList();
 
-    // No specific way to identify the title
     final title = columns[0];
-    final artist = columns.firstWhere(isArtist, orElse: () => columns[3]);
+    final parsedArtists = parseArtistRuns(columns);
+    final artists = parsedArtists.isNotEmpty
+        ? parsedArtists
+        : [
+            ArtistBasic(
+              name:
+                  traverseString(columns.length > 3 ? columns[3] : null, [
+                    "text",
+                  ]) ??
+                  '',
+              artistId: traverseString(columns.length > 3 ? columns[3] : null, [
+                "browseId",
+              ]),
+            ),
+          ];
     final playlistId =
         traverseString(item, ["overlay", "playlistId"]) ??
         traverseString(item, ["thumbnailOverlay", "playlistId"]);
@@ -121,10 +142,7 @@ class AlbumParser {
       type: "ALBUM",
       albumId: traverseList(item, ["browseId"]).last,
       playlistId: playlistId ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]),
-      ),
+      artists: artists,
       year: processYear(columns.last?['text']),
       name: traverseString(title, ["text"]) ?? '',
       thumbnails: traverseList(item, [
@@ -145,7 +163,7 @@ class AlbumParser {
       playlistId:
           traverseString(item, ["thumbnailOverlay", "playlistId"]) ?? '',
       name: traverseString(item, ["title", "text"]) ?? '',
-      artist: artistBasic,
+      artists: artistsOrFallback(parseArtistsFromSubtitle(item), artistBasic),
       year: processYear(traverseList(item, ["subtitle", "text"]).last),
       thumbnails: traverseList(item, [
         "thumbnails",
@@ -166,7 +184,7 @@ class AlbumParser {
       playlistId:
           traverseString(item, ["musicPlayButtonRenderer", "playlistId"]) ?? '',
       name: traverseString(item, ["title", "text"]) ?? '',
-      artist: artistBasic,
+      artists: artistsOrFallback(parseArtistsFromSubtitle(item), artistBasic),
       year: processYear(traverseList(item, ["subtitle", "text"]).last),
       thumbnails: traverseList(item, [
         "thumbnails",
@@ -176,7 +194,16 @@ class AlbumParser {
   }
 
   static AlbumDetailed parseHomeSection(dynamic item) {
-    final artist = traverse(item, ["subtitle", "runs"]).last;
+    final artists = parseArtistsFromSubtitle(item);
+    final fallback = traverse(item, ["subtitle", "runs"]);
+    final parsed = artists.isNotEmpty
+        ? artists
+        : [
+            ArtistBasic(
+              name: traverseString(fallback, ["text"]) ?? '',
+              artistId: traverseString(fallback, ["browseId"]) ?? '',
+            ),
+          ];
 
     return AlbumDetailed(
       type: "ALBUM",
@@ -184,10 +211,7 @@ class AlbumParser {
       playlistId:
           traverseString(item, ["thumbnailOverlay", "playlistId"]) ?? '',
       name: traverseString(item, ["title", "text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]) ?? '',
-      ),
+      artists: parsed,
       year: null,
       thumbnails: traverseList(item, [
         "thumbnails",

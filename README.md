@@ -122,6 +122,7 @@ The following methods are available in the `YTMusic` class:
 
 ## Data Fields
 
+- **`artists`**: `List<ArtistBasic>` of credited artists on `SongDetailed`, `SongFull`, `VideoDetailed`, `VideoFull`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull`, `WatchTrack` and `UpNextsDetails`. YouTube Music collaborations (e.g. ANTIDROGA → Emma & Fabri Fibra) are separate Innertube runs, each with a name and `artistId`. Use `ArtistBasic.formatNames(artists)` for the `A & B` / `A, B & C` display string. The former singular **`artist`** getter is deprecated and returns `artists.first`. `getSong` / `getVideo` resolve credits from `/next` (the `/player` endpoint only has a single channel author). Album tracks without per-row credits inherit the album header artists.
 - **`isExplicit`**: Available on `SongDetailed`, `SongFull`, `VideoDetailed`, `VideoFull`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull` and `UpNextsDetails`. Reflects YouTube Music's "Explicit" content badge. Not every context exposes this badge (e.g. some playlists don't), in which case it defaults to `false`. `getSong` / `getVideo` resolve it via `/next`.
 - **`description`**: Available on `ArtistFull`, `AlbumFull` and `PlaylistFull`, containing the description text shown on the item's YouTube Music page, if any.
 - **`radioId` / `shuffleId`**: On `ArtistFull`, watch-playlist ids for Start radio (`RDEM…`) and Shuffle (`RDAO…`).

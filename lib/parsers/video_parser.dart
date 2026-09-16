@@ -1,18 +1,27 @@
 import 'package:dart_ytmusic_api/parsers/parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
 class VideoParser {
-  static VideoFull parse(dynamic data, {bool isExplicit = false}) {
+  static VideoFull parse(
+    dynamic data, {
+    bool isExplicit = false,
+    List<ArtistBasic>? artists,
+  }) {
     return VideoFull(
       type: "VIDEO",
       videoId: traverseString(data, ["videoDetails", "videoId"]) ?? '',
       name: traverseString(data, ["videoDetails", "title"]) ?? '',
-      artist: ArtistBasic(
-        artistId: traverseString(data, ["videoDetails", "channelId"]),
-        name: traverseString(data, ["author"]) ?? '',
-      ),
+      artists: artists != null && artists.isNotEmpty
+          ? artists
+          : [
+              ArtistBasic(
+                artistId: traverseString(data, ["videoDetails", "channelId"]),
+                name: traverseString(data, ["author"]) ?? '',
+              ),
+            ],
       duration: int.parse(
         traverseString(data, ["videoDetails", "lengthSeconds"]) ?? '0',
       ),
@@ -54,8 +63,22 @@ class VideoParser {
     ]).expand((e) => e is Iterable ? e : [e]).toList();
 
     final title = columns.firstWhere(isTitle, orElse: () => null);
-    final artist = columns.firstWhere(isArtist, orElse: () => columns[1]);
     final duration = columns.firstWhere(isDuration, orElse: () => null);
+    final parsedArtists = parseArtistRuns(columns);
+    final artists = parsedArtists.isNotEmpty
+        ? parsedArtists
+        : [
+            ArtistBasic(
+              artistId: traverseString(columns.length > 1 ? columns[1] : null, [
+                "browseId",
+              ]),
+              name:
+                  traverseString(columns.length > 1 ? columns[1] : null, [
+                    "text",
+                  ]) ??
+                  '',
+            ),
+          ];
 
     String? viewCount;
     final flexColumns = item['flexColumns'] as List<dynamic>?;
@@ -73,10 +96,7 @@ class VideoParser {
       videoId:
           traverseString(item, ["playNavigationEndpoint", "videoId"]) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artist: ArtistBasic(
-        artistId: traverseString(artist, ["browseId"]),
-        name: traverseString(artist, ["text"]) ?? '',
-      ),
+      artists: artists,
       duration: Parser.parseDuration(duration?['text']),
       thumbnails: traverseList(item, [
         "thumbnails",
@@ -94,7 +114,7 @@ class VideoParser {
       type: "VIDEO",
       videoId: traverseString(item, ["videoId"]) ?? '',
       name: traverseString(item, ["runs", "text"]) ?? '',
-      artist: artistBasic,
+      artists: artistsOrFallback(parseArtistsFromSubtitle(item), artistBasic),
       duration: null,
       thumbnails: traverseList(item, [
         "thumbnails",
@@ -117,11 +137,24 @@ class VideoParser {
       isTitle,
       orElse: () => flexColumns.isNotEmpty ? flexColumns[0] : null,
     );
-    final artist = flexColumns.firstWhere(
-      isArtist,
-      orElse: () => flexColumns.length > 1 ? flexColumns[1] : null,
-    );
     final duration = fixedColumns.firstWhere(isDuration, orElse: () => null);
+    final parsedArtists = parseArtistRuns(flexColumns);
+    final artists = parsedArtists.isNotEmpty
+        ? parsedArtists
+        : [
+            ArtistBasic(
+              name:
+                  traverseString(
+                    flexColumns.length > 1 ? flexColumns[1] : null,
+                    ["text"],
+                  ) ??
+                  '',
+              artistId: traverseString(
+                flexColumns.length > 1 ? flexColumns[1] : null,
+                ["browseId"],
+              ),
+            ),
+          ];
 
     final videoId1 = traverseString(item, [
       "playNavigationEndpoint",
@@ -145,10 +178,7 @@ class VideoParser {
       type: "VIDEO",
       videoId: videoId1 ?? videoId2!,
       name: traverseString(title, ["text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]),
-      ),
+      artists: artists,
       duration: Parser.parseDuration(
         duration is Map ? duration['text'] : duration?.toString(),
       ),

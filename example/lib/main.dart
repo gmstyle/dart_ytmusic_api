@@ -156,9 +156,9 @@ class HomePage extends StatelessWidget {
 
   static String _defaultInput(String label) {
     if (label.contains('User')) return 'UC44hbeRoCZVVMVg5z0FfIww';
-    if (label.contains('Artist')) return 'UC4G-AJa7kn8oumI6TT2WXYw';
-    if (label.contains('Album Browse')) return 'MPREb_4OAyJwegLNd';
-    if (label.contains('Album')) return 'MPREb_4OAyJwegLNd';
+    if (label.contains('Artist')) return 'UCzH13CnhFKwTJ1i0A2394ew';
+    if (label.contains('Album Browse')) return 'MPREb_L3vxjEHJMsL';
+    if (label.contains('Album')) return 'MPREb_L3vxjEHJMsL';
     if (label.contains('Get Podcast')) {
       return 'MPSPPLIB4EaahNDRK3xJz5oWXc4ldziESr0Itd';
     }
@@ -172,14 +172,14 @@ class HomePage extends StatelessWidget {
         label.contains('Next') ||
         label.contains('Watch') ||
         label.contains('Related')) {
-      return 'LDY4Bf8Zwn8';
+      return 'noOdrqwqft0';
     }
     if (label.contains('Charts')) return 'ZZ';
     if (label.contains('Podcast') || label.contains('Episode')) {
       return 'serial';
     }
     if (label.contains('Profile')) return 'MrBeast';
-    return 'Aurora Runaway';
+    return 'ANTIDROGA';
   }
 
   @override
@@ -956,7 +956,7 @@ Future<List<String>> _searchSongs(String q) async {
   return r
       .map(
         (s) =>
-            '🎵 ${s.name}${_explicitTag(s.isExplicit)}\n   ${s.artist.name} - ${s.videoId} - ${s.playCount} - ${s.albumId}',
+            '🎵 ${s.name}${_explicitTag(s.isExplicit)}\n   ${_artistsLabel(s.artists)} - ${s.videoId} - ${s.playCount} - ${s.albumId}',
       )
       .toList();
 }
@@ -966,7 +966,7 @@ Future<List<String>> _searchVideos(String q) async {
   return r
       .map(
         (v) =>
-            '🎬 ${v.name}${_explicitTag(v.isExplicit)}\n   ${v.artist.name} - ${v.videoId} - ${v.viewCount ?? 'N/A'}',
+            '🎬 ${v.name}${_explicitTag(v.isExplicit)}\n   ${_artistsLabel(v.artists)} - ${v.videoId} - ${v.viewCount ?? 'N/A'}',
       )
       .toList();
 }
@@ -986,7 +986,7 @@ Future<List<String>> _searchAlbums(String q) async {
   return r
       .map(
         (a) =>
-            '💿 ${a.name}${_explicitTag(a.isExplicit)}\n   ${a.artist.name} · ${a.albumId}',
+            '💿 ${a.name}${_explicitTag(a.isExplicit)}\n   ${_artistsLabel(a.artists)} · ${a.albumId}',
       )
       .toList();
 }
@@ -1028,14 +1028,14 @@ Future<List<String>> _search(String q) async {
 
 String _resultTitle(SearchResult s) {
   if (s is SongDetailed) {
-    return '${s.name}${_explicitTag(s.isExplicit)} — ${s.artist.name}';
+    return '${s.name}${_explicitTag(s.isExplicit)} — ${_artistsLabel(s.artists)}';
   }
   if (s is VideoDetailed) {
-    return '${s.name}${_explicitTag(s.isExplicit)} — ${s.artist.name}';
+    return '${s.name}${_explicitTag(s.isExplicit)} — ${_artistsLabel(s.artists)}';
   }
   if (s is ArtistDetailed) return s.name;
   if (s is AlbumDetailed) {
-    return '${s.name}${_explicitTag(s.isExplicit)} — ${s.artist.name}';
+    return '${s.name}${_explicitTag(s.isExplicit)} — ${_artistsLabel(s.artists)}';
   }
   if (s is PlaylistDetailed) {
     return '${s.name}${_explicitTag(s.isExplicit)}';
@@ -1056,6 +1056,9 @@ String _resultTitle(SearchResult s) {
 /// model's `isExplicit` field (added in dart_ytmusic_api 1.5.0) is `true`.
 String _explicitTag(bool isExplicit) => isExplicit ? ' 🔞' : '';
 
+String _artistsLabel(List<ArtistBasic> artists) =>
+    ArtistBasic.formatNames(artists);
+
 Future<List<String>> _suggestions(String q) async {
   return _api.getSearchSuggestions(q);
 }
@@ -1064,7 +1067,8 @@ Future<List<String>> _getSong(String id) async {
   final s = await _api.getSong(id);
   return [
     'Title: ${s.name}',
-    'Artist: ${s.artist.name}',
+    'Artists: ${_artistsLabel(s.artists)}',
+    ...s.artists.map((a) => '  ${a.name} · ${a.artistId ?? 'N/A'}'),
     'Duration: ${s.duration}s',
     'videoId: ${s.videoId}',
     'albumId: ${s.album?.albumId ?? 'N/A'}',
@@ -1080,7 +1084,8 @@ Future<List<String>> _getVideo(String id) async {
   final v = await _api.getVideo(id);
   return [
     'Title: ${v.name}${_explicitTag(v.isExplicit)}',
-    'Artist: ${v.artist.name}',
+    'Artists: ${_artistsLabel(v.artists)}',
+    ...v.artists.map((a) => '  ${a.name} · ${a.artistId ?? 'N/A'}'),
     'Duration: ${v.duration}s',
     'videoId: ${v.videoId}',
     'viewCount: ${v.viewCount ?? 'N/A'}',
@@ -1113,7 +1118,7 @@ Future<List<String>> _getUpNexts(String id) async {
   return r
       .map(
         (u) =>
-            '${u.title}${_explicitTag(u.isExplicit)}\n   ${u.artists.name} · ${u.videoId}',
+            '${u.title}${_explicitTag(u.isExplicit)}\n   ${_artistsLabel(u.artists)} · ${u.videoId}',
       )
       .toList();
 }
@@ -1136,7 +1141,18 @@ Future<List<String>> _getArtist(String id) async {
     'Description: ${a.description ?? 'N/A'}',
     'Monthly Listeners: ${a.monthlyListeners ?? 'N/A'}',
     'Total views: ${a.totalViews ?? 'N/A'}',
-    ...a.topVideos.take(5).map((v) => '  video: ${v.name} · ${v.videoId}'),
+    ...a.topSongs
+        .take(5)
+        .map(
+          (s) =>
+              '  song: ${s.name} — ${_artistsLabel(s.artists)} · ${s.videoId}',
+        ),
+    ...a.topVideos
+        .take(5)
+        .map(
+          (v) =>
+              '  video: ${v.name} — ${_artistsLabel(v.artists)} · ${v.videoId}',
+        ),
     ...a.similarArtists
         .take(5)
         .map((s) => '  similar: ${s.name} · ${s.artistId}'),
@@ -1146,7 +1162,10 @@ Future<List<String>> _getArtist(String id) async {
 Future<List<String>> _getArtistSongs(String id) async {
   final r = await _api.getArtistSongs(id);
   return r
-      .map((s) => '${s.name}${_explicitTag(s.isExplicit)} · ${s.videoId}')
+      .map(
+        (s) =>
+            '${s.name}${_explicitTag(s.isExplicit)} — ${_artistsLabel(s.artists)} · ${s.videoId}',
+      )
       .toList();
 }
 
@@ -1168,13 +1187,15 @@ Future<List<String>> _getAlbum(String id) async {
   final a = await _api.getAlbum(id);
   return [
     'Title: ${a.name}${_explicitTag(a.isExplicit)}',
-    'Artist: ${a.artist.name}',
+    'Artists: ${_artistsLabel(a.artists)}',
+    ...a.artists.map((x) => '  ${x.name} · ${x.artistId ?? 'N/A'}'),
     'Year: ${a.year ?? 'N/A'}',
     'isExplicit: ${a.isExplicit}',
     'Description: ${a.description ?? 'N/A'}',
     'Tracks: ${a.songs.length}',
     ...a.songs.mapIndexed(
-      (i, s) => '  ${i + 1}. ${s.name}${_explicitTag(s.isExplicit)}',
+      (i, s) =>
+          '  ${i + 1}. ${s.name}${_explicitTag(s.isExplicit)} — ${_artistsLabel(s.artists)}',
     ),
   ];
 }
@@ -1183,21 +1204,27 @@ Future<List<String>> _getPlaylist(String id) async {
   final p = await _api.getPlaylist(id);
   return [
     'Title: ${p.name}${_explicitTag(p.isExplicit)}',
-    'Artist: ${p.artist.name}',
+    'Artists: ${_artistsLabel(p.artists)}',
     'Videos: ${p.videoCount}',
     'Tracks loaded: ${p.tracks.length}',
     'isExplicit: ${p.isExplicit}',
     'Description: ${p.description ?? 'N/A'}',
     ...p.tracks
         .take(10)
-        .map((t) => '  ${t.name}${_explicitTag(t.isExplicit)} · ${t.videoId}'),
+        .map(
+          (t) =>
+              '  ${t.name}${_explicitTag(t.isExplicit)} — ${_artistsLabel(t.artists)} · ${t.videoId}',
+        ),
   ];
 }
 
 Future<List<String>> _getPlaylistVideos(String id) async {
   final r = await _api.getPlaylistVideos(id);
   return r
-      .map((v) => '${v.name}${_explicitTag(v.isExplicit)} · ${v.videoId}')
+      .map(
+        (v) =>
+            '${v.name}${_explicitTag(v.isExplicit)} — ${_artistsLabel(v.artists)} · ${v.videoId}',
+      )
       .toList();
 }
 
@@ -1212,7 +1239,7 @@ Future<List<String>> _getWatchPlaylist(String id) async {
         .take(20)
         .map(
           (t) =>
-              '${t.title}${_explicitTag(t.isExplicit)} · ${t.artist.name} · ${t.videoId}',
+              '${t.title}${_explicitTag(t.isExplicit)} · ${_artistsLabel(t.artists)} · ${t.videoId}',
         ),
   ];
 }
@@ -1241,7 +1268,10 @@ String _resultTitleOrString(dynamic item) {
 Future<List<String>> _getArtistVideos(String id) async {
   final r = await _api.getArtistVideos(id);
   return r
-      .map((v) => '${v.name}${_explicitTag(v.isExplicit)} · ${v.videoId}')
+      .map(
+        (v) =>
+            '${v.name}${_explicitTag(v.isExplicit)} — ${_artistsLabel(v.artists)} · ${v.videoId}',
+      )
       .toList();
 }
 
@@ -1283,10 +1313,15 @@ Future<List<String>> _getNewReleases(String _) async {
     ...r.albums
         .take(10)
         .map(
-          (a) => '  💿 ${a.name}${_explicitTag(a.isExplicit)} · ${a.albumId}',
+          (a) =>
+              '  💿 ${a.name}${_explicitTag(a.isExplicit)} — ${_artistsLabel(a.artists)} · ${a.albumId}',
         ),
     'Videos: ${r.videos.length}',
-    ...r.videos.take(10).map((v) => '  🎬 ${v.name} · ${v.videoId}'),
+    ...r.videos
+        .take(10)
+        .map(
+          (v) => '  🎬 ${v.name} — ${_artistsLabel(v.artists)} · ${v.videoId}',
+        ),
   ];
 }
 
