@@ -1,5 +1,6 @@
 import 'package:dart_ytmusic_api/parsers/parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
@@ -40,10 +41,12 @@ class WatchParser {
     final title = renderer['title']?['runs']?[0]?['text'] as String? ?? '';
     final longBylineRuns =
         renderer['longBylineText']?['runs'] as List<dynamic>?;
-    final artistName = longBylineRuns?[0]?['text'] as String? ?? '';
-    final artistId =
-        longBylineRuns?[0]?['navigationEndpoint']?['browseEndpoint']?['browseId']
-            as String?;
+    final shortBylineRuns =
+        renderer['shortBylineText']?['runs'] as List<dynamic>?;
+    final longArtists = parseArtistRuns(longBylineRuns);
+    final artists = longArtists.isNotEmpty
+        ? longArtists
+        : parseArtistRuns(shortBylineRuns);
 
     AlbumBasic? album;
     if (longBylineRuns != null) {
@@ -75,7 +78,7 @@ class WatchParser {
     return WatchTrack(
       videoId: videoId,
       title: title,
-      artist: ArtistBasic(name: artistName, artistId: artistId),
+      artists: artists,
       album: album,
       duration: duration,
       thumbnails: thumbnails,
@@ -106,7 +109,7 @@ class WatchParser {
                 ? WatchTrack(
                     videoId: track.videoId,
                     title: track.title,
-                    artist: track.artist,
+                    artists: track.artists,
                     album: track.album,
                     duration: track.duration,
                     thumbnails: track.thumbnails,

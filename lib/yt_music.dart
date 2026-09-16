@@ -16,6 +16,7 @@ import 'package:dart_ytmusic_api/parsers/user_parser.dart';
 import 'package:dart_ytmusic_api/parsers/video_parser.dart';
 import 'package:dart_ytmusic_api/parsers/watch_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 import 'package:http/http.dart' as http;
@@ -510,6 +511,7 @@ class YTMusic {
       data,
       album: nextInfo.album,
       isExplicit: nextInfo.isExplicit,
+      artists: nextInfo.artists,
     );
     if (song.videoId != videoId) {
       throw Exception("Invalid videoId");
@@ -517,16 +519,15 @@ class YTMusic {
     return song;
   }
 
-  /// Calls the `/next` endpoint to extract album info and the "Explicit"
-  /// badge for the current song.
+  /// Calls the `/next` endpoint to extract album info, credited artists, and
+  /// the "Explicit" badge for the current song.
   ///
   /// The `/player` endpoint used by [getSong] does not expose the explicit
-  /// content badge, so it is resolved here using the same `/next` (watch
-  /// queue) call that is already made to resolve the album, avoiding an
-  /// extra network request.
-  Future<({AlbumBasic? album, bool isExplicit})> _getCurrentTrackInfoFromNext(
-    String videoId,
-  ) async {
+  /// content badge or collaboration credits, so both are resolved here using
+  /// the same `/next` (watch queue) call that is already made to resolve the
+  /// album, avoiding an extra network request.
+  Future<({AlbumBasic? album, bool isExplicit, List<ArtistBasic> artists})>
+  _getCurrentTrackInfoFromNext(String videoId) async {
     try {
       final nextData = await constructRequest(
         "next",
@@ -542,12 +543,16 @@ class YTMusic {
 
       final contents = playlistPanelRenderer?['contents'] as List<dynamic>?;
       if (contents == null || contents.isEmpty) {
-        return (album: null, isExplicit: false);
+        return (album: null, isExplicit: false, artists: const <ArtistBasic>[]);
       }
 
       final current = contents[0]?['playlistPanelVideoRenderer'];
       final isExplicit = hasExplicitBadge(current);
       final bylineRuns = current?['longBylineText']?['runs'] as List<dynamic>?;
+      final longArtists = parseArtistRuns(bylineRuns);
+      final artists = longArtists.isNotEmpty
+          ? longArtists
+          : parseArtistRuns(current?['shortBylineText']?['runs']);
       if (bylineRuns != null) {
         for (final run in bylineRuns) {
           final pageType =
@@ -562,6 +567,7 @@ class YTMusic {
               return (
                 album: AlbumBasic(name: albumName, albumId: albumId),
                 isExplicit: isExplicit,
+                artists: artists,
               );
             }
           }
@@ -586,13 +592,14 @@ class YTMusic {
           return (
             album: AlbumBasic(name: name, albumId: playlistId),
             isExplicit: isExplicit,
+            artists: artists,
           );
         }
       }
 
-      return (album: null, isExplicit: isExplicit);
+      return (album: null, isExplicit: isExplicit, artists: artists);
     } catch (_) {
-      return (album: null, isExplicit: false);
+      return (album: null, isExplicit: false, artists: const <ArtistBasic>[]);
     }
   }
 
@@ -673,7 +680,7 @@ class YTMusic {
       type: 'SONG',
       videoId: track.videoId,
       title: track.title,
-      artists: track.artist,
+      artists: track.artists,
       album: track.album,
       duration: track.duration,
       thumbnails: track.thumbnails,
@@ -698,7 +705,11 @@ class YTMusic {
 
     final data = await constructRequest("player", body: {"videoId": videoId});
     final nextInfo = await _getCurrentTrackInfoFromNext(videoId);
-    final video = VideoParser.parse(data, isExplicit: nextInfo.isExplicit);
+    final video = VideoParser.parse(
+      data,
+      isExplicit: nextInfo.isExplicit,
+      artists: nextInfo.artists,
+    );
     if (video.videoId != videoId) {
       throw Exception("Invalid videoId");
     }
@@ -859,7 +870,11 @@ class YTMusic {
               ),
             ),
           )
-          .where((album) => album.artist.artistId == artistId),
+          .where(
+            (album) =>
+                album.artists.any((a) => a.artistId == artistId) ||
+                album.artists.isEmpty,
+          ),
     ];
   }
 
@@ -901,7 +916,11 @@ class YTMusic {
               ),
             ),
           )
-          .where((album) => album.artist.artistId == artistId),
+          .where(
+            (album) =>
+                album.artists.any((a) => a.artistId == artistId) ||
+                album.artists.isEmpty,
+          ),
     ];
   }
 
@@ -995,7 +1014,7 @@ class YTMusic {
         type: 'PLAYLIST',
         playlistId: 'VL$id',
         name: first?.title ?? id,
-        artist: first?.artist ?? ArtistBasic(name: ''),
+        artists: first?.artists ?? const [],
         videoCount: watch.tracks.length,
         thumbnails: first?.thumbnails ?? const [],
         tracks: tracks,
@@ -1080,7 +1099,7 @@ class YTMusic {
       type: 'SONG',
       videoId: track.videoId,
       name: track.title,
-      artist: track.artist,
+      artists: track.artists,
       duration: track.duration,
       thumbnails: track.thumbnails,
       isExplicit: track.isExplicit,

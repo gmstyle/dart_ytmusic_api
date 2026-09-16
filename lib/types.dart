@@ -112,8 +112,72 @@ class ArtistBasic {
     : artistId = map['artistId'] as String?,
       name = map['name'] as String;
 
+  /// Joins credited names the way YouTube Music does (`A & B`, `A, B & C`).
+  static String formatNames(List<ArtistBasic> artists) {
+    if (artists.isEmpty) return '';
+    if (artists.length == 1) return artists.first.name;
+    if (artists.length == 2) {
+      return '${artists[0].name} & ${artists[1].name}';
+    }
+    final head = artists
+        .sublist(0, artists.length - 1)
+        .map((a) => a.name)
+        .join(', ');
+    return '$head & ${artists.last.name}';
+  }
+
   @override
   String toString() => 'ArtistBasic(artistId: $artistId, name: $name)';
+}
+
+/// Shared credited-artists list plus a deprecated singular getter.
+mixin HasArtists {
+  List<ArtistBasic> get artists;
+
+  /// First credited artist (YouTube Music's primary credit).
+  ///
+  /// Use [artists] to read the full collaboration list.
+  @Deprecated('Use artists')
+  ArtistBasic get artist =>
+      artists.isNotEmpty ? artists.first : ArtistBasic(name: '');
+}
+
+/// Resolves `artists` / legacy singular `artist` from a serialized map.
+List<ArtistBasic> artistsFromMap(Map<String, dynamic> map) {
+  final raw = map['artists'];
+  if (raw is List && raw.isNotEmpty) {
+    return [
+      for (final e in raw)
+        if (e is Map<String, dynamic>)
+          ArtistBasic.fromMap(e)
+        else if (e is Map)
+          ArtistBasic.fromMap(Map<String, dynamic>.from(e)),
+    ];
+  }
+  // [UpNextsDetails] historically stored one [ArtistBasic] under `artists`.
+  if (raw is Map<String, dynamic>) {
+    return [ArtistBasic.fromMap(raw)];
+  }
+  if (raw is Map) {
+    return [ArtistBasic.fromMap(Map<String, dynamic>.from(raw))];
+  }
+  final single = map['artist'];
+  if (single is Map<String, dynamic>) {
+    return [ArtistBasic.fromMap(single)];
+  }
+  if (single is Map) {
+    return [ArtistBasic.fromMap(Map<String, dynamic>.from(single))];
+  }
+  return const [];
+}
+
+List<ArtistBasic> coalesceArtists({
+  List<ArtistBasic>? artists,
+  ArtistBasic? artist,
+}) {
+  if (artists != null && artists.isNotEmpty) return artists;
+  if (artist != null) return [artist];
+  return const [];
 }
 
 class AlbumBasic {
@@ -131,12 +195,13 @@ class AlbumBasic {
   String toString() => 'AlbumBasic(albumId: $albumId, name: $name)';
 }
 
-class SongDetailed implements SearchResult {
+class SongDetailed with HasArtists implements SearchResult {
   @override
   final String type;
   final String videoId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final AlbumBasic? album;
   final int? duration;
   final List<ThumbnailFull> thumbnails;
@@ -150,20 +215,21 @@ class SongDetailed implements SearchResult {
     required this.type,
     required this.videoId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     this.album,
     this.duration,
     required this.thumbnails,
     this.playCount,
     this.albumId,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   SongDetailed.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
       duration = map['duration'] as int?,
       thumbnails = (map['thumbnails'] as List)
@@ -174,12 +240,13 @@ class SongDetailed implements SearchResult {
       isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
-class VideoDetailed implements SearchResult {
+class VideoDetailed with HasArtists implements SearchResult {
   @override
   final String type;
   final String videoId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final int? duration;
   final List<ThumbnailFull> thumbnails;
   final String? viewCount;
@@ -191,18 +258,19 @@ class VideoDetailed implements SearchResult {
     required this.type,
     required this.videoId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     this.duration,
     required this.thumbnails,
     this.viewCount,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   VideoDetailed.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       duration = map['duration'] as int?,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
@@ -237,13 +305,14 @@ class ArtistDetailed implements SearchResult {
       monthlyListeners = map['monthlyListeners'] as String?;
 }
 
-class AlbumDetailed implements SearchResult {
+class AlbumDetailed with HasArtists implements SearchResult {
   @override
   final String type;
   final String albumId;
   final String playlistId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final int? year;
   final List<ThumbnailFull> thumbnails;
 
@@ -255,11 +324,12 @@ class AlbumDetailed implements SearchResult {
     required this.albumId,
     required this.playlistId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     this.year,
     required this.thumbnails,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   // Construtor nomeado para criar uma AlbumDetailed a partir de um mapa
   AlbumDetailed.fromMap(Map<String, dynamic> map)
@@ -267,7 +337,7 @@ class AlbumDetailed implements SearchResult {
       albumId = map['albumId'] as String,
       playlistId = map['playlistId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       year = map['year'] as int?,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
@@ -275,12 +345,13 @@ class AlbumDetailed implements SearchResult {
       isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
-class PlaylistDetailed implements SearchResult {
+class PlaylistDetailed with HasArtists implements SearchResult {
   @override
   final String type;
   final String playlistId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final List<ThumbnailFull> thumbnails;
 
   /// Whether YouTube Music marks this playlist with the "Explicit" content badge.
@@ -290,29 +361,31 @@ class PlaylistDetailed implements SearchResult {
     required this.type,
     required this.playlistId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     required this.thumbnails,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   // Construtor nomeado para criar uma PlaylistDetailed a partir de um mapa
   PlaylistDetailed.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       playlistId = map['playlistId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
       isExplicit = map['isExplicit'] as bool? ?? false;
 }
 
-class SongFull implements SearchResult {
+class SongFull with HasArtists implements SearchResult {
   @override
   final String type;
   final String videoId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final int duration;
   final List<ThumbnailFull> thumbnails;
   final List<dynamic> formats;
@@ -334,7 +407,8 @@ class SongFull implements SearchResult {
     required this.type,
     required this.videoId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     required this.duration,
     required this.thumbnails,
     required this.formats,
@@ -345,13 +419,13 @@ class SongFull implements SearchResult {
     this.category,
     this.album,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   SongFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       duration = map['duration'] as int,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
@@ -367,15 +441,16 @@ class SongFull implements SearchResult {
 
   @override
   String toString() {
-    return 'SongFull(type: $type, videoId: $videoId, name: $name, artist: $artist, duration: $duration, thumbnails: $thumbnails, formats: $formats, adaptiveFormats: $adaptiveFormats, album: $album)';
+    return 'SongFull(type: $type, videoId: $videoId, name: $name, artists: $artists, duration: $duration, thumbnails: $thumbnails, formats: $formats, adaptiveFormats: $adaptiveFormats, album: $album)';
   }
 }
 
-class VideoFull {
+class VideoFull with HasArtists {
   final String type;
   final String videoId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final int duration;
   final List<ThumbnailFull> thumbnails;
   final bool unlisted;
@@ -395,7 +470,8 @@ class VideoFull {
     required this.type,
     required this.videoId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     required this.duration,
     required this.thumbnails,
     required this.unlisted,
@@ -408,13 +484,13 @@ class VideoFull {
     this.uploadDate,
     this.musicVideoType,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   VideoFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       duration = map['duration'] as int,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
@@ -509,12 +585,13 @@ class ArtistFull implements SearchResult {
       shuffleId = map['shuffleId'] as String?;
 }
 
-class AlbumFull {
+class AlbumFull with HasArtists {
   final String type;
   final String albumId;
   final String playlistId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final int? year;
   final List<ThumbnailFull> thumbnails;
   List<SongDetailed> songs;
@@ -531,21 +608,22 @@ class AlbumFull {
     required this.albumId,
     required this.playlistId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     this.year,
     required this.thumbnails,
     required this.songs,
     required this.relatedReleases,
     this.isExplicit = false,
     this.description,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   AlbumFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       albumId = map['albumId'] as String,
       playlistId = map['playlistId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       year = map['year'] as int?,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
@@ -562,11 +640,12 @@ class AlbumFull {
       description = map['description'] as String?;
 }
 
-class PlaylistFull {
+class PlaylistFull with HasArtists {
   final String type;
   final String playlistId;
   final String name;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final int videoCount;
   final List<ThumbnailFull> thumbnails;
 
@@ -583,20 +662,21 @@ class PlaylistFull {
     required this.type,
     required this.playlistId,
     required this.name,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     required this.videoCount,
     required this.thumbnails,
     this.isExplicit = false,
     this.description,
     this.tracks = const [],
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   // Construtor nomeado para criar uma PlaylistFull a partir de um mapa
   PlaylistFull.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       playlistId = map['playlistId'] as String,
       name = map['name'] as String,
-      artist = ArtistBasic.fromMap(map['artist']),
+      artists = artistsFromMap(map),
       videoCount = map['videoCount'] as int,
       thumbnails = (map['thumbnails'] as List)
           .map((item) => ThumbnailFull.fromMap(item))
@@ -864,11 +944,12 @@ SearchResult createSearchResultFromMap(Map<String, dynamic> map) {
   }
 }
 
-class UpNextsDetails {
+class UpNextsDetails with HasArtists {
   final String type;
   final String videoId;
   final String title;
-  final ArtistBasic artists;
+  @override
+  final List<ArtistBasic> artists;
   final AlbumBasic? album;
   final int duration;
   final List<ThumbnailFull> thumbnails;
@@ -880,19 +961,20 @@ class UpNextsDetails {
     required this.type,
     required this.videoId,
     required this.title,
-    required this.artists,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     this.album,
     required this.duration,
     required this.thumbnails,
     this.isExplicit = false,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   // Construtor nomeado para criar uma UpNextsDetails a partir de um mapa
   UpNextsDetails.fromMap(Map<String, dynamic> map)
     : type = map['type'] as String,
       videoId = map['videoId'] as String,
       title = map['title'] as String,
-      artists = ArtistBasic.fromMap(map['artists']),
+      artists = artistsFromMap(map),
       album = map['album'] != null ? AlbumBasic.fromMap(map['album']) : null,
       duration = map['duration'] as int,
       thumbnails = (map['thumbnails'] as List)
@@ -965,10 +1047,11 @@ class BrowseHomeResult {
   });
 }
 
-class WatchTrack {
+class WatchTrack with HasArtists {
   final String videoId;
   final String title;
-  final ArtistBasic artist;
+  @override
+  final List<ArtistBasic> artists;
   final AlbumBasic? album;
   final int duration;
   final List<ThumbnailFull> thumbnails;
@@ -978,13 +1061,14 @@ class WatchTrack {
   WatchTrack({
     required this.videoId,
     required this.title,
-    required this.artist,
+    List<ArtistBasic>? artists,
+    @Deprecated('Use artists') ArtistBasic? artist,
     this.album,
     required this.duration,
     required this.thumbnails,
     this.isExplicit = false,
     this.counterpart,
-  });
+  }) : artists = coalesceArtists(artists: artists, artist: artist);
 }
 
 class WatchPlaylistResult {

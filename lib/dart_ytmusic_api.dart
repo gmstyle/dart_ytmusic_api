@@ -3,7 +3,7 @@ library;
 export './yt_music.dart';
 export './enums.dart';
 export './types.dart';
-export './utils/filters.dart';
+export './utils/artists.dart';
 export './utils/traverse.dart';
 export './parsers/album_parser.dart';
 export './parsers/artist_parser.dart';

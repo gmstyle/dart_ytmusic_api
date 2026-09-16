@@ -1,5 +1,6 @@
 import 'package:dart_ytmusic_api/parsers/parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
@@ -8,15 +9,21 @@ class SongParser {
     dynamic data, {
     AlbumBasic? album,
     bool isExplicit = false,
+    List<ArtistBasic>? artists,
   }) {
+    final parsedArtists = (artists != null && artists.isNotEmpty)
+        ? artists
+        : [
+            ArtistBasic(
+              name: traverseString(data, ["author"]) ?? '',
+              artistId: traverseString(data, ["videoDetails", "channelId"]),
+            ),
+          ];
     return SongFull(
       type: "SONG",
       videoId: traverseString(data, ["videoDetails", "videoId"]) ?? '',
       name: traverseString(data, ["videoDetails", "title"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(data, ["author"]) ?? '',
-        artistId: traverseString(data, ["videoDetails", "channelId"]),
-      ),
+      artists: parsedArtists,
       duration: int.parse(
         traverseString(data, ["videoDetails", "lengthSeconds"]) ?? '0',
       ),
@@ -55,6 +62,21 @@ class SongParser {
         ]);
   }
 
+  static List<ArtistBasic> _artistsFromColumns(
+    List<dynamic> columns, {
+    dynamic fallback,
+  }) {
+    final artists = parseArtistRuns(columns);
+    if (artists.isNotEmpty) return artists;
+    if (fallback == null) return const [];
+    return [
+      ArtistBasic(
+        name: traverseString(fallback, ["text"]) ?? '',
+        artistId: traverseString(fallback, ["browseId"]),
+      ),
+    ];
+  }
+
   static SongDetailed parseSearchResult(dynamic item) {
     final columns = traverseList(item, [
       "flexColumns",
@@ -62,11 +84,14 @@ class SongParser {
     ]).expand((e) => e is Iterable ? e : [e]).toList();
 
     final title = columns[0];
-    final artist = columns.firstWhere(isArtist, orElse: () => columns[3]);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final duration = columns.firstWhere(
       (item) => isDuration(item) && item != title,
       orElse: () => null,
+    );
+    final artists = _artistsFromColumns(
+      columns,
+      fallback: columns.length > 3 ? columns[3] : null,
     );
 
     String? playCount;
@@ -89,10 +114,7 @@ class SongParser {
       type: "SONG",
       videoId: _videoIdFromItem(item) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]),
-      ),
+      artists: artists,
       album: album != null
           ? AlbumBasic(
               name: traverseString(album, ["text"]) ?? '',
@@ -127,7 +149,7 @@ class SongParser {
       type: "SONG",
       videoId: _videoIdFromItem(item) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artist: artistBasic,
+      artists: artistsOrFallback(parseArtistRuns(columns), artistBasic),
       album: album != null
           ? AlbumBasic(
               name: traverseString(album, ["text"]) ?? '',
@@ -167,7 +189,7 @@ class SongParser {
       type: "SONG",
       videoId: _videoIdFromItem(item) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artist: artistBasic,
+      artists: artistsOrFallback(parseArtistRuns(columns), artistBasic),
       album: album != null
           ? AlbumBasic(
               name: traverseString(album, ["text"]) ?? '',
@@ -186,7 +208,7 @@ class SongParser {
 
   static SongDetailed parseAlbumSong(
     dynamic item,
-    ArtistBasic artistBasic,
+    List<ArtistBasic> albumArtists,
     AlbumBasic albumBasic,
     List<ThumbnailFull> thumbnails,
   ) {
@@ -198,12 +220,13 @@ class SongParser {
       "fixedColumns",
       "runs",
     ]).firstWhere(isDuration, orElse: () => null);
+    final trackArtists = parseArtistsFromFlexColumns(item);
 
     return SongDetailed(
       type: "SONG",
       videoId: _videoIdFromItem(item) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artist: artistBasic,
+      artists: trackArtists.isNotEmpty ? trackArtists : albumArtists,
       album: albumBasic,
       duration: Parser.parseDuration(duration?['text']),
       thumbnails: thumbnails,

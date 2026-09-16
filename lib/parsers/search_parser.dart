@@ -14,7 +14,7 @@ class SearchParser {
     final type =
         traverseList(flexColumns[1], ["runs", "text"]).firstOrNull as String?;
 
-    final parsers = {
+    final parsers = <String, SearchResult Function(dynamic)>{
       "Song": SongParser.parseSearchResult,
       "Video": VideoParser.parseSearchResult,
       "Artist": ArtistParser.parseSearchResult,

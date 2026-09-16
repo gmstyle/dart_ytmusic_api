@@ -1,3 +1,8 @@
+## 1.8.0
+
+**New Features**
+- Credited artists are now a list: `artists` (`List<ArtistBasic>`) on songs, videos, albums, playlists, watch tracks and up-next items. Collaborations such as ANTIDROGA (Emma & Fabri Fibra) keep every artist id. The singular `artist` getter is deprecated and returns the first credit. `ArtistBasic.formatNames` joins names the way YouTube Music does. `getSong` / `getVideo` read credits from `/next`.
+
 ## 1.7.1
 
 **Fixes**

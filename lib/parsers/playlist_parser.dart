@@ -1,5 +1,6 @@
 import 'package:dart_ytmusic_api/parsers/video_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
+import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 
@@ -9,16 +10,27 @@ class PlaylistParser {
     String playlistId, {
     List<VideoDetailed> tracks = const [],
   }) {
-    final artist = traverse(data, ["tabs", "straplineTextOne"]);
+    final parsedArtists = parseArtistsFromStrapline(data);
+    final artists = parsedArtists.isNotEmpty
+        ? parsedArtists
+        : [
+            ArtistBasic(
+              name:
+                  traverseString(data, ["tabs", "straplineTextOne", "text"]) ??
+                  '',
+              artistId: traverseString(data, [
+                "tabs",
+                "straplineTextOne",
+                "browseId",
+              ]),
+            ),
+          ];
 
     return PlaylistFull(
       type: "PLAYLIST",
       playlistId: playlistId,
       name: traverseString(data, ["tabs", "title", "text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]),
-      ),
+      artists: artists,
       videoCount: _parseVideoCount(
         traverseList(data, ["tabs", "secondSubtitle", "text"]),
       ),
@@ -150,22 +162,28 @@ class PlaylistParser {
       "runs",
     ]).expand((e) => e is List ? e : [e]).toList();
 
-    // No specific way to identify the title
     final title = columns[0];
-    final artist = columns.firstWhere(
-      isArtist,
-      orElse: () =>
-          columns.length > 2 ? columns[3] : AlbumBasic(albumId: '', name: ''),
-    );
+    final parsedArtists = parseArtistRuns(columns);
+    final artists = parsedArtists.isNotEmpty
+        ? parsedArtists
+        : [
+            ArtistBasic(
+              name:
+                  traverseString(columns.length > 3 ? columns[3] : null, [
+                    "text",
+                  ]) ??
+                  '',
+              artistId: traverseString(columns.length > 3 ? columns[3] : null, [
+                "browseId",
+              ]),
+            ),
+          ];
 
     return PlaylistDetailed(
       type: "PLAYLIST",
       playlistId: traverseString(item, ["overlay", "playlistId"]) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]),
-      ),
+      artists: artists,
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
@@ -182,7 +200,7 @@ class PlaylistParser {
       playlistId:
           traverseString(item, ["navigationEndpoint", "browseId"]) ?? '',
       name: traverseString(item, ["runs", "text"]) ?? '',
-      artist: artistBasic,
+      artists: artistsOrFallback(parseArtistsFromSubtitle(item), artistBasic),
       thumbnails: traverseList(item, [
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
@@ -191,7 +209,16 @@ class PlaylistParser {
   }
 
   static PlaylistDetailed parseHomeSection(dynamic item) {
-    final artist = traverse(item, ["subtitle", "runs"]);
+    final parsedArtists = parseArtistsFromSubtitle(item);
+    final fallback = traverse(item, ["subtitle", "runs"]);
+    final artists = parsedArtists.isNotEmpty
+        ? parsedArtists
+        : [
+            ArtistBasic(
+              name: traverseString(fallback, ["text"]) ?? '',
+              artistId: traverseString(fallback, ["browseId"]),
+            ),
+          ];
     final watchPlaylistId = traverseString(item, [
       "watchPlaylistEndpoint",
       "playlistId",
@@ -217,10 +244,7 @@ class PlaylistParser {
       type: "PLAYLIST",
       playlistId: playlistId,
       name: traverseString(item, ["runs", "text"]) ?? '',
-      artist: ArtistBasic(
-        name: traverseString(artist, ["text"]) ?? '',
-        artistId: traverseString(artist, ["browseId"]),
-      ),
+      artists: artists,
       thumbnails:
           traverseList(item, [
                 "thumbnailRenderer",
