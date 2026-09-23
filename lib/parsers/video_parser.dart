@@ -170,7 +170,8 @@ class VideoParser {
             ),
           ];
 
-    final videoId = _videoIdFromItem(item) ??
+    final videoId =
+        _videoIdFromItem(item) ??
         () {
           final firstThumb = traverseList(item, ["thumbnails"]).firstOrNull;
           final url = firstThumb is Map && firstThumb['url'] is String
