@@ -211,6 +211,13 @@ class SongDetailed with HasArtists implements SearchResult {
   /// Whether YouTube Music marks this song with the "Explicit" content badge.
   final bool isExplicit;
 
+  /// Whether this row can be played.
+  ///
+  /// `false` when YouTube Music greys out the list item
+  /// (`MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT`). Metadata may still be
+  /// present. Defaults to `true` when the signal is absent.
+  final bool isPlayable;
+
   SongDetailed({
     required this.type,
     required this.videoId,
@@ -223,6 +230,7 @@ class SongDetailed with HasArtists implements SearchResult {
     this.playCount,
     this.albumId,
     this.isExplicit = false,
+    this.isPlayable = true,
   }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   SongDetailed.fromMap(Map<String, dynamic> map)
@@ -237,7 +245,8 @@ class SongDetailed with HasArtists implements SearchResult {
           .toList(),
       playCount = map['playCount'] as String?,
       albumId = map['albumId'] as String?,
-      isExplicit = map['isExplicit'] as bool? ?? false;
+      isExplicit = map['isExplicit'] as bool? ?? false,
+      isPlayable = map['isPlayable'] as bool? ?? true;
 }
 
 class VideoDetailed with HasArtists implements SearchResult {
@@ -254,6 +263,13 @@ class VideoDetailed with HasArtists implements SearchResult {
   /// Whether YouTube Music marks this video with the "Explicit" content badge.
   final bool isExplicit;
 
+  /// Whether this row can be played.
+  ///
+  /// `false` when YouTube Music greys out the list item
+  /// (`MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT`). Metadata may still be
+  /// present. Defaults to `true` when the signal is absent.
+  final bool isPlayable;
+
   VideoDetailed({
     required this.type,
     required this.videoId,
@@ -264,6 +280,7 @@ class VideoDetailed with HasArtists implements SearchResult {
     required this.thumbnails,
     this.viewCount,
     this.isExplicit = false,
+    this.isPlayable = true,
   }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   VideoDetailed.fromMap(Map<String, dynamic> map)
@@ -276,7 +293,8 @@ class VideoDetailed with HasArtists implements SearchResult {
           .map((item) => ThumbnailFull.fromMap(item))
           .toList(),
       viewCount = map['viewCount'] as String?,
-      isExplicit = map['isExplicit'] as bool? ?? false;
+      isExplicit = map['isExplicit'] as bool? ?? false,
+      isPlayable = map['isPlayable'] as bool? ?? true;
 }
 
 class ArtistDetailed implements SearchResult {

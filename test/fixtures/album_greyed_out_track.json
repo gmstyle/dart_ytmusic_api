@@ -1,0 +1,53 @@
+{
+  "trackingParams": "test",
+  "overlay": {
+    "musicItemThumbnailOverlayRenderer": {
+      "content": {
+        "musicPlayButtonRenderer": {
+          "playIcon": { "iconType": "PLAY_ARROW" }
+        }
+      }
+    }
+  },
+  "flexColumns": [
+    {
+      "musicResponsiveListItemFlexColumnRenderer": {
+        "text": {
+          "runs": [{ "text": "Kiss Me" }]
+        },
+        "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+      }
+    },
+    {
+      "musicResponsiveListItemFlexColumnRenderer": {
+        "text": {
+          "runs": [{ "text": "Sixpence None The Richer" }],
+          "accessibility": {
+            "accessibilityData": { "label": "Sixpence None The Richer" }
+          }
+        },
+        "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+      }
+    }
+  ],
+  "fixedColumns": [
+    {
+      "musicResponsiveListItemFixedColumnRenderer": {
+        "text": {
+          "runs": [{ "text": "3:18" }]
+        },
+        "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+        "size": "MUSIC_RESPONSIVE_LIST_ITEM_FIXED_COLUMN_SIZE_SMALL"
+      }
+    }
+  ],
+  "playlistItemData": {
+    "playlistSetVideoId": "7FDDC50551AE05A2",
+    "videoId": "LS3BFjgkou8"
+  },
+  "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM",
+  "musicItemRendererDisplayPolicy": "MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT",
+  "index": {
+    "runs": [{ "text": "1" }]
+  }
+}
