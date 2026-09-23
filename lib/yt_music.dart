@@ -18,6 +18,7 @@ import 'package:dart_ytmusic_api/parsers/watch_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
 import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
+import 'package:dart_ytmusic_api/utils/playable_video_id.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 import 'package:http/http.dart' as http;
 
@@ -985,9 +986,75 @@ class YTMusic {
   }
 
   /// Retrieves detailed information about an album given its album ID.
+  ///
+  /// Greyed-out tracks (`SongDetailed.isPlayable == false`) are resolved in
+  /// parallel via [resolvePlayableVideoId]. When YouTube Music redirects to a
+  /// replacement upload, [SongDetailed.videoId] becomes that id,
+  /// [SongDetailed.originalVideoId] keeps the catalog id, and
+  /// [SongDetailed.isPlayable] is set to `true`.
   Future<AlbumFull> getAlbum(String albumId) async {
     final data = await constructRequest("browse", body: {"browseId": albumId});
-    return AlbumParser.parse(data, albumId);
+    final album = AlbumParser.parse(data, albumId);
+    album.songs = await _resolveUnplayableAlbumSongs(album.songs);
+    return album;
+  }
+
+  /// Fetches the YouTube Music watch page for [videoId] and returns the
+  /// canonical video id when it differs (unavailable → replacement upload).
+  ///
+  /// Returns `null` when there is no redirect or the page cannot be parsed.
+  Future<String?> resolvePlayableVideoId(String videoId) async {
+    if (!RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
+      return null;
+    }
+
+    final uri = Uri.parse(
+      'https://music.youtube.com/watch',
+    ).replace(queryParameters: {'v': videoId});
+    final cookies = await cookieJar.loadForRequest(uri);
+    final cookieString = cookies
+        .map((cookie) => '${cookie.name}=${cookie.value}')
+        .join('; ');
+    const socsCookie = 'SOCS=CAI';
+    final headers = {
+      ..._baseHeaders,
+      'accept':
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'cookie': cookieString.isNotEmpty
+          ? '$cookieString; $socsCookie'
+          : socsCookie,
+    };
+
+    try {
+      final response = await _client.get(uri, headers: headers);
+      _saveCookiesFromHeaders(uri, response.headers);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      return playableVideoIdFromWatchHtml(response.body, videoId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<SongDetailed>> _resolveUnplayableAlbumSongs(
+    List<SongDetailed> songs,
+  ) async {
+    if (songs.every((s) => s.isPlayable)) return songs;
+
+    final resolved = await Future.wait(
+      songs.map((song) async {
+        if (song.isPlayable || song.videoId.isEmpty) return song;
+        final replacement = await resolvePlayableVideoId(song.videoId);
+        if (replacement == null || replacement == song.videoId) return song;
+        return song.copyWith(
+          videoId: replacement,
+          isPlayable: true,
+          originalVideoId: song.videoId,
+        );
+      }),
+    );
+    return resolved;
   }
 
   /// Retrieves detailed information about a playlist given its playlist ID.

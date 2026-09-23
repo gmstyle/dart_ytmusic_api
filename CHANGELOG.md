@@ -1,3 +1,9 @@
+## 1.9.1
+
+**New Features**
+- `getAlbum` resolves greyed-out tracks in parallel via YouTube Music watch-page `rel=canonical` redirects. Replaced uploads set `SongDetailed.videoId` to the playable id, `originalVideoId` to the catalog id, and `isPlayable` to `true`.
+- Added `resolvePlayableVideoId(videoId)` and `playableVideoIdFromWatchHtml` for the same redirect lookup.
+
 ## 1.9.0
 
 **New Features**
