@@ -9,20 +9,14 @@ void main() {
 <link rel="canonical" href="https://music.youtube.com/watch?v=K2tbQ_g2VbQ">
 </head></html>
 ''';
-      expect(
-        playableVideoIdFromWatchHtml(html, 'LS3BFjgkou8'),
-        'K2tbQ_g2VbQ',
-      );
+      expect(playableVideoIdFromWatchHtml(html, 'LS3BFjgkou8'), 'K2tbQ_g2VbQ');
     });
 
     test('returns redirected id from href before rel=canonical', () {
       const html = '''
 <link href="https://music.youtube.com/watch?v=K2tbQ_g2VbQ" rel="canonical">
 ''';
-      expect(
-        playableVideoIdFromWatchHtml(html, 'LS3BFjgkou8'),
-        'K2tbQ_g2VbQ',
-      );
+      expect(playableVideoIdFromWatchHtml(html, 'LS3BFjgkou8'), 'K2tbQ_g2VbQ');
     });
 
     test('returns null when canonical matches requested id', () {
