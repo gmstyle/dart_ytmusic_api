@@ -218,6 +218,10 @@ class SongDetailed with HasArtists implements SearchResult {
   /// present. Defaults to `true` when the signal is absent.
   final bool isPlayable;
 
+  /// Catalog [videoId] from the album browse row when [videoId] was replaced
+  /// by [YTMusic.resolvePlayableVideoId] (YouTube Music canonical redirect).
+  final String? originalVideoId;
+
   SongDetailed({
     required this.type,
     required this.videoId,
@@ -231,6 +235,7 @@ class SongDetailed with HasArtists implements SearchResult {
     this.albumId,
     this.isExplicit = false,
     this.isPlayable = true,
+    this.originalVideoId,
   }) : artists = coalesceArtists(artists: artists, artist: artist);
 
   SongDetailed.fromMap(Map<String, dynamic> map)
@@ -246,7 +251,30 @@ class SongDetailed with HasArtists implements SearchResult {
       playCount = map['playCount'] as String?,
       albumId = map['albumId'] as String?,
       isExplicit = map['isExplicit'] as bool? ?? false,
-      isPlayable = map['isPlayable'] as bool? ?? true;
+      isPlayable = map['isPlayable'] as bool? ?? true,
+      originalVideoId = map['originalVideoId'] as String?;
+
+  /// Copy with optional field overrides (used when resolving playable ids).
+  SongDetailed copyWith({
+    String? videoId,
+    bool? isPlayable,
+    String? originalVideoId,
+  }) {
+    return SongDetailed(
+      type: type,
+      videoId: videoId ?? this.videoId,
+      name: name,
+      artists: artists,
+      album: album,
+      duration: duration,
+      thumbnails: thumbnails,
+      playCount: playCount,
+      albumId: albumId,
+      isExplicit: isExplicit,
+      isPlayable: isPlayable ?? this.isPlayable,
+      originalVideoId: originalVideoId ?? this.originalVideoId,
+    );
+  }
 }
 
 class VideoDetailed with HasArtists implements SearchResult {

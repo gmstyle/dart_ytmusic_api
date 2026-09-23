@@ -82,7 +82,8 @@ The following methods are available in the `YTMusic` class:
 - `getWatchPlaylist({videoId, playlistId, radio, shuffle})`: Retrieves the watch queue playlist.
 - `getSongRelated(String browseId)`: Retrieves related content for a track.
 - `getArtist(artistId: String)`: Retrieves detailed information about an artist given its artist ID.
-- `getAlbum(albumId: String)`: Retrieves detailed information about an album given its album ID.
+- `getAlbum(albumId: String)`: Retrieves detailed information about an album given its album ID. Greyed-out tracks are resolved via watch-page canonical redirects when available.
+- `resolvePlayableVideoId(videoId: String)`: Returns the YouTube Music canonical replacement id when [videoId] redirects, otherwise `null`.
 - `getPlaylist(playlistId: String, {limit})`: Playlist metadata plus tracks (default limit 100).
 - `getPlaylistVideos(playlistId: String)`: Full track list for a playlist.
 - `getAlbumBrowseId(audioPlaylistId: String)`: Resolves an album audio playlist id (`OLAK5uy_…`) to its browse id (`MPREb_…`).
@@ -124,7 +125,8 @@ The following methods are available in the `YTMusic` class:
 
 - **`artists`**: `List<ArtistBasic>` of credited artists on `SongDetailed`, `SongFull`, `VideoDetailed`, `VideoFull`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull`, `WatchTrack` and `UpNextsDetails`. YouTube Music collaborations (e.g. ANTIDROGA → Emma & Fabri Fibra) are separate Innertube runs, each with a name and `artistId`. Use `ArtistBasic.formatNames(artists)` for the `A & B` / `A, B & C` display string. The former singular **`artist`** getter is deprecated and returns `artists.first`. `getSong` / `getVideo` resolve credits from `/next` (the `/player` endpoint only has a single channel author). Album tracks without per-row credits inherit the album header artists; greyed-out album rows still expose the plain-text artist name from the second column when no browse endpoint is present.
 - **`isExplicit`**: Available on `SongDetailed`, `SongFull`, `VideoDetailed`, `VideoFull`, `AlbumDetailed`, `AlbumFull`, `PlaylistDetailed`, `PlaylistFull` and `UpNextsDetails`. Reflects YouTube Music's "Explicit" content badge. Not every context exposes this badge (e.g. some playlists don't), in which case it defaults to `false`. `getSong` / `getVideo` resolve it via `/next`.
-- **`isPlayable`**: Available on `SongDetailed` and `VideoDetailed`. `false` when the list row has `MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT` (unavailable in catalog but still listed). Defaults to `true`. Album, playlist, artist song/video, search and home list parsers set it from browse data without calling `/player`. Greyed-out album/playlist rows still return title, artist text and `videoId` when present.
+- **`isPlayable`**: Available on `SongDetailed` and `VideoDetailed`. `false` when the list row has `MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT` (unavailable in catalog but still listed). Defaults to `true`. Album, playlist, artist song/video, search and home list parsers set it from browse data without calling `/player`. Greyed-out album/playlist rows still return title, artist text and `videoId` when present. `getAlbum` then tries YouTube Music watch-page canonical redirects for greyed-out songs and, on success, replaces `videoId`, sets `isPlayable` to `true`, and stores the catalog id in `originalVideoId`.
+- **`originalVideoId`**: On `SongDetailed`, set by `getAlbum` when `videoId` was replaced by a playable redirect. Otherwise `null`.
 - **`description`**: Available on `ArtistFull`, `AlbumFull` and `PlaylistFull`, containing the description text shown on the item's YouTube Music page, if any.
 - **`radioId` / `shuffleId`**: On `ArtistFull`, watch-playlist ids for Start radio (`RDEM…`) and Shuffle (`RDAO…`).
 - **`tracks`**: On `PlaylistFull`, loaded with `getPlaylist({limit})` (default 100).
