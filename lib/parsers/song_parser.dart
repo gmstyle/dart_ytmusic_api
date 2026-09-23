@@ -62,6 +62,13 @@ class SongParser {
         ]);
   }
 
+  /// Title run with `musicVideoType`, else first flex-column text (grey-out rows).
+  static dynamic _titleFromColumns(List<dynamic> columns) {
+    final titled = columns.firstWhere(isTitle, orElse: () => null);
+    if (titled != null) return titled;
+    return columns.isNotEmpty ? columns[0] : null;
+  }
+
   static List<ArtistBasic> _artistsFromColumns(
     List<dynamic> columns, {
     dynamic fallback,
@@ -75,6 +82,34 @@ class SongParser {
         artistId: traverseString(fallback, ["browseId"]),
       ),
     ];
+  }
+
+  /// Second-column text when no artist browse endpoint is present (grey-out).
+  static List<ArtistBasic> _albumTrackArtists(
+    dynamic item,
+    List<ArtistBasic> albumArtists,
+  ) {
+    final trackArtists = parseArtistsFromFlexColumns(item);
+    if (trackArtists.isNotEmpty) return trackArtists;
+
+    final flexColumns = item is Map ? item['flexColumns'] : null;
+    if (flexColumns is List && flexColumns.length > 1) {
+      final secondCol =
+          flexColumns[1]['musicResponsiveListItemFlexColumnRenderer'];
+      final runs = secondCol?['text']?['runs'] as List<dynamic>?;
+      if (runs != null && runs.isNotEmpty) {
+        final name = traverseString(runs[0], ['text']) ?? '';
+        if (name.isNotEmpty) {
+          return [
+            ArtistBasic(
+              name: name,
+              artistId: traverseString(runs[0], ['browseId']),
+            ),
+          ];
+        }
+      }
+    }
+    return albumArtists;
   }
 
   static SongDetailed parseSearchResult(dynamic item) {
@@ -128,6 +163,7 @@ class SongParser {
       playCount: playCount,
       albumId: albumId,
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 
@@ -137,7 +173,7 @@ class SongParser {
       "runs",
     ]).expand((e) => e is List ? e : [e]).toList();
 
-    final title = columns.firstWhere(isTitle, orElse: () => null);
+    final title = _titleFromColumns(columns);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final duration = columns.firstWhere(isDuration, orElse: () => null);
     final cleanedDuration = duration?['text']?.replaceAll(
@@ -161,6 +197,7 @@ class SongParser {
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 
@@ -173,7 +210,7 @@ class SongParser {
       "runs",
     ]).expand((e) => e is List ? e : [e]).toList();
 
-    final title = columns.firstWhere(isTitle, orElse: () => null);
+    final title = _titleFromColumns(columns);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final playCountCol = columns.length > 2 ? columns[2] : null;
     final playCount = playCountCol != null
@@ -203,6 +240,7 @@ class SongParser {
       playCount: playCount,
       albumId: albumId,
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 
@@ -212,25 +250,26 @@ class SongParser {
     AlbumBasic albumBasic,
     List<ThumbnailFull> thumbnails,
   ) {
-    final title = traverseList(item, [
+    final columns = traverseList(item, [
       "flexColumns",
       "runs",
-    ]).firstWhere(isTitle, orElse: () => null);
+    ]).expand((e) => e is Iterable ? e : [e]).toList();
+    final title = _titleFromColumns(columns);
     final duration = traverseList(item, [
       "fixedColumns",
       "runs",
     ]).firstWhere(isDuration, orElse: () => null);
-    final trackArtists = parseArtistsFromFlexColumns(item);
 
     return SongDetailed(
       type: "SONG",
       videoId: _videoIdFromItem(item) ?? '',
       name: traverseString(title, ["text"]) ?? '',
-      artists: trackArtists.isNotEmpty ? trackArtists : albumArtists,
+      artists: _albumTrackArtists(item, albumArtists),
       album: albumBasic,
       duration: Parser.parseDuration(duration?['text']),
       thumbnails: thumbnails,
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 

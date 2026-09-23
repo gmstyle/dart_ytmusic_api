@@ -1,3 +1,12 @@
+## 1.9.0
+
+**New Features**
+- Added `isPlayable` on `SongDetailed` and `VideoDetailed`, set from `MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT` on browse list rows (album, playlist, artist songs/videos, search, home). Defaults to `true`.
+
+**Fixes**
+- Album and artist song parsers keep title and artist text on greyed-out rows that lack `musicVideoType` / artist browse endpoints, instead of empty titles and album-level artist fallback.
+- Playlist video parser reads `playlistItemData.videoId` so greyed-out playlist rows are kept with metadata instead of being dropped.
+
 ## 1.8.0
 
 **New Features**

@@ -27,6 +27,16 @@ bool isDuration(dynamic data) {
   return RegExp(r"(\d{1,2}:)?\d{1,2}:\d{1,2}").hasMatch(text ?? '');
 }
 
+/// Whether a `musicResponsiveListItemRenderer` is greyed out as unavailable.
+///
+/// YouTube Music sets `musicItemRendererDisplayPolicy` to
+/// `MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT` on album/playlist/artist
+/// rows that still show metadata but cannot be played.
+bool isGreyedOutItem(dynamic data) {
+  final policy = traverseString(data, ["musicItemRendererDisplayPolicy"]);
+  return policy == "MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT";
+}
+
 /// Verifica se um item carrega o selo de conteúdo "Explicit" do YouTube Music.
 ///
 /// O badge de conteúdo explícito aparece sob chaves diferentes dependendo do

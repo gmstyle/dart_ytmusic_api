@@ -113,6 +113,43 @@ void main() {
       );
       expect(track.name, 'ANTIDROGA');
       expect(_names(track.artists), ['Emma', 'Fabri Fibra']);
+      expect(track.isPlayable, isTrue);
+    });
+
+    test('greyed-out track keeps title and artist without album fallback', () {
+      final item = _json('album_greyed_out_track.json');
+      final track = SongParser.parseAlbumSong(
+        item,
+        [
+          ArtistBasic(
+            name: "Dawson's Creek (Television Soundtrack)",
+            artistId: 'UC_album',
+          ),
+        ],
+        AlbumBasic(
+          albumId: 'MPREb_3yuzFdjEJfI',
+          name: "Songs from Dawson's Creek",
+        ),
+        const [],
+      );
+      expect(track.name, 'Kiss Me');
+      expect(track.videoId, 'LS3BFjgkou8');
+      expect(_names(track.artists), ['Sixpence None The Richer']);
+      expect(track.artists.single.artistId, isNull);
+      expect(track.isPlayable, isFalse);
+      expect(track.duration, 198);
+    });
+  });
+
+  group('playlist parser', () {
+    test('greyed-out row keeps playlistItemData videoId', () {
+      final item = _json('playlist_greyed_out_track.json');
+      final video = VideoParser.parsePlaylistVideo(item);
+      expect(video, isNotNull);
+      expect(video!.name, 'Unavailable Track');
+      expect(video.videoId, 'abcdefghijk');
+      expect(_names(video.artists), ['Some Artist']);
+      expect(video.isPlayable, isFalse);
     });
   });
 

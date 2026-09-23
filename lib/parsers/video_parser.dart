@@ -56,13 +56,26 @@ class VideoParser {
     );
   }
 
+  static String? _videoIdFromItem(dynamic item) {
+    return traverseString(item, ["playlistItemData", "videoId"]) ??
+        traverseString(item, ["playNavigationEndpoint", "videoId"]) ??
+        traverseString(item, [
+          "navigationEndpoint",
+          "watchEndpoint",
+          "videoId",
+        ]);
+  }
+
   static VideoDetailed parseSearchResult(dynamic item) {
     final columns = traverseList(item, [
       "flexColumns",
       "runs",
     ]).expand((e) => e is Iterable ? e : [e]).toList();
 
-    final title = columns.firstWhere(isTitle, orElse: () => null);
+    final title = columns.firstWhere(
+      isTitle,
+      orElse: () => columns.isNotEmpty ? columns[0] : null,
+    );
     final duration = columns.firstWhere(isDuration, orElse: () => null);
     final parsedArtists = parseArtistRuns(columns);
     final artists = parsedArtists.isNotEmpty
@@ -93,8 +106,7 @@ class VideoParser {
 
     return VideoDetailed(
       type: "VIDEO",
-      videoId:
-          traverseString(item, ["playNavigationEndpoint", "videoId"]) ?? '',
+      videoId: _videoIdFromItem(item) ?? '',
       name: traverseString(title, ["text"]) ?? '',
       artists: artists,
       duration: Parser.parseDuration(duration?['text']),
@@ -103,6 +115,7 @@ class VideoParser {
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       viewCount: viewCount,
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 
@@ -120,6 +133,7 @@ class VideoParser {
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 
@@ -156,27 +170,24 @@ class VideoParser {
             ),
           ];
 
-    final videoId1 = traverseString(item, [
-      "playNavigationEndpoint",
-      "videoId",
-    ]);
-    final videoId2 = () {
-      final firstThumb = traverseList(item, ["thumbnails"]).firstOrNull;
-      final url = firstThumb is Map && firstThumb['url'] is String
-          ? firstThumb['url'] as String
-          : '';
-      return RegExp(
-        r"https:\/\/i\.ytimg\.com\/vi\/(.+)\/",
-      ).firstMatch(url)?.group(1);
-    }();
+    final videoId = _videoIdFromItem(item) ??
+        () {
+          final firstThumb = traverseList(item, ["thumbnails"]).firstOrNull;
+          final url = firstThumb is Map && firstThumb['url'] is String
+              ? firstThumb['url'] as String
+              : '';
+          return RegExp(
+            r"https:\/\/i\.ytimg\.com\/vi\/(.+)\/",
+          ).firstMatch(url)?.group(1);
+        }();
 
-    if ((videoId1?.isEmpty ?? true) && videoId2 == null) {
+    if (videoId == null || videoId.isEmpty) {
       return null;
     }
 
     return VideoDetailed(
       type: "VIDEO",
-      videoId: videoId1 ?? videoId2!,
+      videoId: videoId,
       name: traverseString(title, ["text"]) ?? '',
       artists: artists,
       duration: Parser.parseDuration(
@@ -186,6 +197,7 @@ class VideoParser {
         "thumbnails",
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
     );
   }
 }
