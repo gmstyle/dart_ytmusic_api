@@ -1,3 +1,8 @@
+## 1.9.2
+
+**Fixes**
+- `getArtistAlbums` / `getArtistSingles` follow discography grid continuations (up to 10 pages), dedupe by `albumId`, and fall back to the artist carousel when the "Show all" browse endpoint is missing.
+
 ## 1.9.1
 
 **New Features**
