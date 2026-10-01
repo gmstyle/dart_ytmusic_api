@@ -18,6 +18,7 @@ import 'package:dart_ytmusic_api/parsers/watch_parser.dart';
 import 'package:dart_ytmusic_api/types.dart';
 import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
+import 'package:dart_ytmusic_api/utils/continuation_token.dart';
 import 'package:dart_ytmusic_api/utils/playable_video_id.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 import 'package:http/http.dart' as http;
@@ -836,93 +837,105 @@ class YTMusic {
   }
 
   /// Retrieves a list of albums by a specific artist given the artist's ID.
-  Future<List<AlbumDetailed>> getArtistAlbums(String artistId) async {
-    final artistData = await constructRequest(
-      "browse",
-      body: {"browseId": artistId},
-    );
-    final carousels = traverseList(artistData, ["musicCarouselShelfRenderer"]);
-    final albumsCarousel = ArtistParser.findCarousel(
-      carousels,
-      ArtistParser.isAlbums,
-    );
-    final artistAlbumsData = albumsCarousel ?? {};
-    final browseBody = traverse(artistAlbumsData, [
-      "moreContentButton",
-      "browseEndpoint",
-    ]);
-    if (browseBody is List || artistAlbumsData.isEmpty) {
-      return [];
-    }
-    final albumsData = await constructRequest(
-      "browse",
-      body: browseBody is List ? {} : browseBody,
-    );
-    return [
-      ...traverseList(albumsData, ["musicTwoRowItemRenderer"])
-          .map(
-            (item) => AlbumParser.parseArtistAlbum(
-              item,
-              ArtistBasic(
-                artistId: artistId,
-                name:
-                    traverseString(albumsData, ["header", "runs", "text"]) ??
-                    '',
-              ),
-            ),
-          )
-          .where(
-            (album) =>
-                album.artists.any((a) => a.artistId == artistId) ||
-                album.artists.isEmpty,
-          ),
-    ];
+  ///
+  /// Follows discography grid continuations (up to 10 pages). When the artist
+  /// page has no "Show all" browse endpoint, returns the carousel items.
+  Future<List<AlbumDetailed>> getArtistAlbums(String artistId) {
+    return _getArtistAlbumCatalog(artistId, ArtistParser.isAlbums);
   }
 
-  Future<List<AlbumDetailed>> getArtistSingles(String artistId) async {
+  /// Retrieves a list of singles / EPs by a specific artist.
+  ///
+  /// Same pagination behaviour as [getArtistAlbums].
+  Future<List<AlbumDetailed>> getArtistSingles(String artistId) {
+    return _getArtistAlbumCatalog(artistId, ArtistParser.isSingles);
+  }
+
+  Future<List<AlbumDetailed>> _getArtistAlbumCatalog(
+    String artistId,
+    bool Function(String title) carouselTest,
+  ) async {
     final artistData = await constructRequest(
-      "browse",
-      body: {"browseId": artistId},
+      'browse',
+      body: {'browseId': artistId},
+    );
+    final artistBasic = ArtistBasic(
+      artistId: artistId,
+      name: traverseString(artistData, ['header', 'title', 'text']) ?? '',
     );
 
-    final carousels = traverseList(artistData, ["musicCarouselShelfRenderer"]);
-    final singlesCarousel = ArtistParser.findCarousel(
-      carousels,
-      ArtistParser.isSingles,
-    );
-    final artistSinglesData = singlesCarousel ?? {};
+    final carousels = traverseList(artistData, ['musicCarouselShelfRenderer']);
+    final carousel = ArtistParser.findCarousel(carousels, carouselTest);
+    if (carousel == null) return [];
 
-    final browseBody = traverse(artistSinglesData, [
-      "moreContentButton",
-      "browseEndpoint",
-    ]);
-    if (browseBody is List) {
-      return [];
-    }
-
-    final singlesData = await constructRequest(
-      "browse",
-      body: browseBody is List ? {} : browseBody,
-    );
-    return [
-      ...traverseList(singlesData, ["musicTwoRowItemRenderer"])
-          .map(
-            (item) => AlbumParser.parseArtistAlbum(
-              item,
-              ArtistBasic(
-                artistId: artistId,
-                name:
-                    traverseString(singlesData, ["header", "runs", "text"]) ??
-                    '',
-              ),
-            ),
-          )
+    List<AlbumDetailed> fromCarousel() {
+      return ArtistParser.parseCarouselContents(carousel)
+          .map((item) => AlbumParser.parseArtistTopAlbum(item, artistBasic))
+          .where((album) => album.albumId.isNotEmpty)
           .where(
             (album) =>
                 album.artists.any((a) => a.artistId == artistId) ||
                 album.artists.isEmpty,
-          ),
-    ];
+          )
+          .toList();
+    }
+
+    final browseBody = traverse(carousel, [
+      'moreContentButton',
+      'browseEndpoint',
+    ]);
+    if (browseBody is! Map) {
+      return fromCarousel();
+    }
+
+    final browseMap = Map<String, dynamic>.from(browseBody);
+    var pageData = await constructRequest('browse', body: browseMap);
+
+    final seenIds = <String>{};
+    final albums = <AlbumDetailed>[];
+
+    void addFromPage(dynamic data, ArtistBasic credit) {
+      for (final item in traverseList(data, ['musicTwoRowItemRenderer'])) {
+        final album = AlbumParser.parseArtistAlbum(item, credit);
+        if (album.albumId.isEmpty || seenIds.contains(album.albumId)) {
+          continue;
+        }
+        if (album.artists.any((a) => a.artistId == artistId) ||
+            album.artists.isEmpty) {
+          seenIds.add(album.albumId);
+          albums.add(album);
+        }
+      }
+    }
+
+    var pageCredit = ArtistBasic(
+      artistId: artistId,
+      name:
+          traverseString(pageData, ['header', 'runs', 'text']) ??
+          artistBasic.name,
+    );
+    addFromPage(pageData, pageCredit);
+
+    const maxPages = 10;
+    var pages = 1;
+    String? previousToken;
+    var token = longestContinuationToken(traverse(pageData, ['continuation']));
+
+    while (shouldFollowContinuationToken(token, previousToken) &&
+        pages < maxPages) {
+      previousToken = token;
+      final beforeCount = seenIds.length;
+      pageData = await constructRequest(
+        'browse',
+        query: {'continuation': token!},
+      );
+      pages++;
+      addFromPage(pageData, pageCredit);
+      if (seenIds.length == beforeCount) break;
+      token = longestContinuationToken(traverse(pageData, ['continuation']));
+    }
+
+    return albums;
   }
 
   /// Retrieves a list of videos by a specific artist.

@@ -6,6 +6,7 @@ export './types.dart';
 export './utils/artists.dart';
 export './utils/traverse.dart';
 export './utils/playable_video_id.dart';
+export './utils/continuation_token.dart';
 export './parsers/album_parser.dart';
 export './parsers/artist_parser.dart';
 export './parsers/parser.dart';
