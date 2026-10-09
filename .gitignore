@@ -38,3 +38,6 @@ doc/api/
 
 # Raw Innertube JSON dumps produced by tool/dump_raw.dart
 tool/output/
+
+# Ignrore vscode settings.json
+.vscode/settings.json
