@@ -44,5 +44,8 @@ void main() {
       expect(playlist2.videoCount, equals(117));
       expect(playlist2.name, equals('Chill R&B'));
     },
+    skip: !File('example/getPlaylistRaw1.txt').existsSync()
+        ? 'Playlist raw fixtures are not in the repo'
+        : null,
   );
 }
