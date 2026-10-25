@@ -20,6 +20,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # Separate Flutter app; analyzed with flutter analyze inside example/.
+    - example/**
 include: package:lints/recommended.yaml
 
 # Uncomment the following section to specify additional rules.

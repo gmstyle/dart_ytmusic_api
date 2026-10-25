@@ -11,9 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
 
+      # example/ is a Flutter app; skip it so Dart-only CI does not need Flutter.
       - name: Install dependencies
-        run: dart pub get
+        run: dart pub get --no-example
       - name: Analyze
         run: dart analyze
       - name: Run tests
