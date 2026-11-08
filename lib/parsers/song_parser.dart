@@ -212,10 +212,9 @@ class SongParser {
 
     final title = _titleFromColumns(columns);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
-    final playCountCol = columns.length > 2 ? columns[2] : null;
-    final playCount = playCountCol != null
-        ? traverseString(playCountCol, ["text"])
-        : null;
+    // Flattened runs put the collaboration separator (" & ") at index 2.
+    // The play count is its own flex column, for example "2.3M plays".
+    final playCount = _playCountFromFlexColumns(item);
 
     String? albumId;
     if (album != null) {
@@ -242,6 +241,34 @@ class SongParser {
       isExplicit: hasExplicitBadge(item),
       isPlayable: !isGreyedOutItem(item),
     );
+  }
+
+  static final RegExp _playCountPattern = RegExp(
+    r'^[\d.,]+\s*(?:[KMB]|mln|mila|million|billion)?\s*'
+    r'(?:plays|riproduzioni|views?|visualizzazioni)\b',
+    caseSensitive: false,
+  );
+
+  /// Play-count column on an artist top-song row.
+  ///
+  /// Collaboration credits split " & " into its own run, so the flattened
+  /// run list cannot be indexed. A play-count column is a single run.
+  static String? _playCountFromFlexColumns(dynamic item) {
+    if (item is! Map) return null;
+    final flexColumns = item['flexColumns'];
+    if (flexColumns is! List) return null;
+    for (final renderer in flexColumns) {
+      if (renderer is! Map) continue;
+      final column = renderer['musicResponsiveListItemFlexColumnRenderer'];
+      if (column is! Map) continue;
+      final runs = column['text']?['runs'];
+      if (runs is! List || runs.length != 1 || runs.first is! Map) continue;
+      final text = runs.first['text'];
+      if (text is! String) continue;
+      final trimmed = text.trim();
+      if (_playCountPattern.hasMatch(trimmed)) return trimmed;
+    }
+    return null;
   }
 
   static SongDetailed parseAlbumSong(

@@ -1,3 +1,8 @@
+## 1.9.3
+
+**Fixes**
+- Artist top songs read the play-count column (`2.3M plays`) instead of the collaboration separator (` & `) in the flattened subtitle runs.
+
 ## 1.9.2
 
 **Fixes**

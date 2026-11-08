@@ -170,8 +170,11 @@ void main() {
           .toList();
       final byName = {for (final s in songs) s.name: s};
       expect(_names(byName['ANTIDROGA']!.artists), ['Emma', 'Fabri Fibra']);
+      expect(byName['ANTIDROGA']!.playCount, '2.3M plays');
       expect(_names(byName['Juste un peu']!.artists), ['Jungeli', 'EMMA']);
+      expect(byName['Juste un peu']!.playCount, '2.5M plays');
       expect(_names(byName["L'Amore Non Mi Basta"]!.artists), ['Emma']);
+      expect(byName["L'Amore Non Mi Basta"]!.playCount, '81M plays');
     });
 
     test('top video subtitle lists collaborators', () {
