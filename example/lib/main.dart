@@ -1,6 +1,6 @@
 // ignore_for_file: unintended_html_in_doc_comment
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:dart_ytmusic_api/dart_ytmusic_api.dart';
 
