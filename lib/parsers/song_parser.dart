@@ -118,7 +118,12 @@ class SongParser {
       "runs",
     ]).expand((e) => e is Iterable ? e : [e]).toList();
 
-    final title = columns[0];
+    // Two-row home/explore cards have title/subtitle, not flexColumns.
+    if (columns.isEmpty) {
+      return parseHomeTwoRow(item);
+    }
+
+    final title = _titleFromColumns(columns);
     final album = columns.firstWhere(isAlbum, orElse: () => null);
     final duration = columns.firstWhere(
       (item) => isDuration(item) && item != title,
@@ -162,6 +167,32 @@ class SongParser {
       ]).map((item) => ThumbnailFull.fromMap(item)).toList(),
       playCount: playCount,
       albumId: albumId,
+      isExplicit: hasExplicitBadge(item),
+      isPlayable: !isGreyedOutItem(item),
+    );
+  }
+
+  /// Home carousel song cards (`musicTwoRowItemRenderer`) without flex columns.
+  static SongDetailed parseHomeTwoRow(dynamic item) {
+    final artists = parseArtistsFromSubtitle(item);
+    final subtitleRuns = traverseList(item, ['subtitle', 'runs']);
+    final fallbackName = subtitleRuns.isNotEmpty
+        ? traverseString(subtitleRuns.first, ['text'])
+        : null;
+    return SongDetailed(
+      type: 'SONG',
+      videoId: _videoIdFromItem(item) ?? '',
+      name: traverseString(item, ['title', 'text']) ?? '',
+      artists: artists.isNotEmpty
+          ? artists
+          : [
+              if (fallbackName != null && fallbackName.isNotEmpty)
+                ArtistBasic(name: fallbackName),
+            ],
+      duration: null,
+      thumbnails: traverseList(item, [
+        'thumbnails',
+      ]).map((t) => ThumbnailFull.fromMap(t)).toList(),
       isExplicit: hasExplicitBadge(item),
       isPlayable: !isGreyedOutItem(item),
     );
@@ -301,6 +332,9 @@ class SongParser {
   }
 
   static SongDetailed parseHomeSection(dynamic item) {
+    if (item is Map && item.containsKey('musicTwoRowItemRenderer')) {
+      return parseHomeTwoRow(item['musicTwoRowItemRenderer'] ?? item);
+    }
     return parseSearchResult(item);
   }
 }

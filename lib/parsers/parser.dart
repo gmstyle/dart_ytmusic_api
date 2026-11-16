@@ -80,6 +80,15 @@ class Parser {
 
   /// Parses one home shelf item by its own primary browse/watch page type.
   static dynamic _parseHomeContentItem(dynamic item) {
+    try {
+      return _parseHomeContentItemUnsafe(item);
+    } catch (_) {
+      // Authenticated shelves mix shapes; one bad card must not kill Home.
+      return null;
+    }
+  }
+
+  static dynamic _parseHomeContentItemUnsafe(dynamic item) {
     if (item is Map && item.containsKey('musicMultiRowListItemRenderer')) {
       return PodcastParser.parseHomeEpisode(item);
     }

@@ -1,3 +1,25 @@
+## 1.9.5
+
+**Fixes**
+- Homepage and API responses persist every `Set-Cookie` via `headersSplitValues` (not a single folded header). Auth/session cookies are mirrored onto www, music, and mobile origins.
+- When auth cookies are present but `USER_SESSION_ID` is still missing after the first Music homepage fetch, `fetchConfig` performs a second GET so `LOGGED_IN` / SAPISIDHASH `_u` can activate.
+- Authenticated Home no longer crashes on two-row song cards without `flexColumns` (`RangeError` in `SongParser.parseSearchResult`); unparseable shelf items are skipped.
+- `Set-Cookie` handling no longer applies empty/`Max-Age=0` auth cookies (which wiped `SAPISID`/`SID` and broke stream playback with "Sign in to confirm you're not a bot"). InnerTube POSTs no longer absorb `Set-Cookie`.
+
+**New Features**
+- `AccountInfo` and `YTMusic.getAccountInfo()` parse `account/account_menu` (name, email, channel handle, photo).
+- `jarHasLoginInfo` detects a settled `LOGIN_INFO` cookie (needed for account menu / `LOGGED_IN`).
+- `AccountInfo.toMap` / `fromMap` for caching the account card locally.
+- Session mirror list includes `__Secure-1PSIDTS` / `__Secure-3PSIDTS`.
+- `filterYoutubeSessionCookies` / `isYoutubeSessionCookieName` drop Google Accounts cookies from WebView exports.
+- Login-exported `SOCS` values are replaced with `SOCS=CAI` (`ensureMusicConsentCookies`); otherwise Music serves the compatibility stub and streams fail with the bot check.
+
+## 1.9.4
+
+**New Features**
+- Authenticated InnerTube POSTs send `Authorization: SAPISIDHASH` when `SAPISID` (or `__Secure-1/3PAPISID`) is in the cookie jar.
+- Exported `authorizationHeader`, auth cookie helpers (`isSignedIn`, `applyAuthCookies`, `clearAuthCookies`, `parseCookieHeader`), and `USER_SESSION_ID` scrape from `ytcfg`.
+
 ## 1.9.3
 
 **Fixes**

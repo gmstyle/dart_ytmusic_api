@@ -20,6 +20,8 @@ import 'package:dart_ytmusic_api/utils/artists.dart';
 import 'package:dart_ytmusic_api/utils/filters.dart';
 import 'package:dart_ytmusic_api/utils/continuation_token.dart';
 import 'package:dart_ytmusic_api/utils/playable_video_id.dart';
+import 'package:dart_ytmusic_api/utils/auth_cookies.dart';
+import 'package:dart_ytmusic_api/utils/sapisid.dart';
 import 'package:dart_ytmusic_api/utils/traverse.dart';
 import 'package:http/http.dart' as http;
 
@@ -112,42 +114,30 @@ class YTMusic {
     config['INNERTUBE_CLIENT_VERSION'] = '1.20260505.09.00';
     config['INNERTUBE_API_KEY'] = '';
     config['VISITOR_DATA'] = '';
+    config['USER_SESSION_ID'] = '';
     config['GL'] = 'US';
     config['HL'] = 'en';
     config['DEVICE'] = '';
     config['PAGE_CL'] = '';
     config['PAGE_BUILD_LABEL'] = '';
 
-    late final String html;
-    final uri = Uri.parse("https://music.youtube.com/");
-    if (ytMusicHomeRawHtml != null) {
-      html = ytMusicHomeRawHtml!;
-    } else {
-      final cookies = await cookieJar.loadForRequest(uri);
-      final cookieString = cookies
-          .map((cookie) => '${cookie.name}=${cookie.value}')
-          .join('; ');
-      final headers = {
-        ..._baseHeaders,
-        'upgrade-insecure-requests': '1',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'none',
-        'sec-fetch-user': '?1',
-      };
-      // SOCS=CAI bypasses Google's cookie-consent gate, which otherwise
-      // causes YouTube Music to serve the "deprecated browser" fallback page.
-      const socsCookie = 'SOCS=CAI';
-      headers['cookie'] = cookieString.isNotEmpty
-          ? '$cookieString; $socsCookie'
-          : socsCookie;
-      try {
-        final response = await _client.get(uri, headers: headers);
-        _saveCookiesFromHeaders(uri, response.headers);
-        html = response.body;
-      } catch (e) {
-        print('Warning: failed to fetch YouTube Music homepage: $e');
-        return; // use fallback config as-is
+    var html = ytMusicHomeRawHtml;
+    final uri = Uri.parse('https://music.youtube.com/');
+    if (html == null) {
+      final first = await _fetchMusicHomepage(uri);
+      if (first == null) return;
+      html = first;
+
+      // Auth cookies often need one homepage hit to rotate SID/LOGIN_INFO
+      // before ytcfg reports LOGGED_IN / USER_SESSION_ID.
+      _applyYtcfgFromHtml(html);
+      final signedIn = await isSignedIn(cookieJar);
+      final sessionId = config['USER_SESSION_ID'] ?? '';
+      if (signedIn && sessionId.isEmpty) {
+        final second = await _fetchMusicHomepage(uri);
+        if (second != null) {
+          html = second;
+        }
       }
     }
 
@@ -158,6 +148,40 @@ class YTMusic {
       return; // fallbacks already set above
     }
 
+    _applyYtcfgFromHtml(html);
+  }
+
+  Future<String?> _fetchMusicHomepage(Uri uri) async {
+    final cookies = await cookieJar.loadForRequest(uri);
+    final headers = {
+      ..._baseHeaders,
+      'upgrade-insecure-requests': '1',
+      'sec-fetch-dest': 'document',
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-site': 'none',
+      'sec-fetch-user': '?1',
+    };
+    // SOCS=CAI bypasses Google's cookie-consent gate. Drop any other SOCS
+    // from the jar first — a login-exported SOCS makes Music return the
+    // "not optimized for your browser" stub (no ytcfg / VISITOR_DATA).
+    final cleaned = cookies
+        .where((c) => c.name != 'SOCS')
+        .map((cookie) => '${cookie.name}=${cookie.value}')
+        .join('; ');
+    headers['cookie'] = cleaned.isNotEmpty
+        ? '$cleaned; SOCS=$kYtSocsConsentValue'
+        : 'SOCS=$kYtSocsConsentValue';
+    try {
+      final response = await _client.get(uri, headers: headers);
+      await saveSetCookiesFromResponse(cookieJar, uri, response);
+      return response.body;
+    } catch (e) {
+      print('Warning: failed to fetch YouTube Music homepage: $e');
+      return null;
+    }
+  }
+
+  void _applyYtcfgFromHtml(String html) {
     final ytcfg = _parseAllYtcfgBlocks(html);
     for (final key in const [
       'VISITOR_DATA',
@@ -171,6 +195,7 @@ class YTMusic {
       'INNERTUBE_CLIENT_NAME',
       'GL',
       'HL',
+      'USER_SESSION_ID',
     ]) {
       final v = ytcfg[key];
       if (v != null) config[key] = v.toString();
@@ -277,6 +302,16 @@ class YTMusic {
       headers['cookie'] = cookieString;
     }
 
+    final cookieMap = {for (final c in cookies) c.name: c.value};
+    final auth = authorizationHeader(
+      cookieMap,
+      'https://music.youtube.com',
+      userSessionId: config['USER_SESSION_ID'],
+    );
+    if (auth != null) {
+      headers['Authorization'] = auth;
+    }
+
     final requestBody = {
       "context": {
         "capabilities": {},
@@ -330,7 +365,8 @@ class YTMusic {
         body: json.encode(requestBody),
       );
 
-      _saveCookiesFromHeaders(uri, response.headers);
+      // Do not absorb Set-Cookie from youtubei POSTs — they often clear
+      // SAPISID/SID (Max-Age=0) and break stream resolution.
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // Decode JSON in a separate isolate to avoid blocking the main thread
@@ -351,15 +387,10 @@ class YTMusic {
     }
   }
 
-  void _saveCookiesFromHeaders(Uri uri, Map<String, String> headers) {
-    final setCookieHeader = headers['set-cookie'];
-    if (setCookieHeader == null) return;
-    try {
-      final cookie = Cookie.fromSetCookieValue(setCookieHeader);
-      cookieJar.saveFromResponse(uri, [cookie]);
-    } catch (e) {
-      //
-    }
+  /// Signed-in account card from `account/account_menu`, or `null` when guest.
+  Future<AccountInfo?> getAccountInfo() async {
+    final response = await constructRequest('account/account_menu');
+    return AccountInfo.fromAccountMenu(response);
   }
 
   /// Retrieves search suggestions for a given query.
@@ -1040,7 +1071,7 @@ class YTMusic {
 
     try {
       final response = await _client.get(uri, headers: headers);
-      _saveCookiesFromHeaders(uri, response.headers);
+      await saveSetCookiesFromResponse(cookieJar, uri, response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
       }
@@ -1304,7 +1335,7 @@ class YTMusic {
           : socsCookie,
     };
     final response = await _client.get(uri, headers: headers);
-    _saveCookiesFromHeaders(uri, response.headers);
+    await saveSetCookiesFromResponse(cookieJar, uri, response);
     final match = RegExp(r'MPREb_[a-zA-Z0-9_-]+').firstMatch(response.body);
     return match?.group(0);
   }

@@ -1207,3 +1207,103 @@ class ChartsResult {
     this.languages,
   });
 }
+
+/// Signed-in YouTube Music account card from `account/account_menu`.
+class AccountInfo {
+  final String name;
+  final String? email;
+  final String? channelHandle;
+  final String? photoUrl;
+
+  AccountInfo({
+    required this.name,
+    this.email,
+    this.channelHandle,
+    this.photoUrl,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    if (email != null) 'email': email,
+    if (channelHandle != null) 'channelHandle': channelHandle,
+    if (photoUrl != null) 'photoUrl': photoUrl,
+  };
+
+  static AccountInfo? fromMap(Map<String, dynamic>? map) {
+    if (map == null) return null;
+    final name = map['name']?.toString();
+    if (name == null || name.isEmpty) return null;
+    return AccountInfo(
+      name: name,
+      email: map['email']?.toString(),
+      channelHandle: map['channelHandle']?.toString(),
+      photoUrl: map['photoUrl']?.toString(),
+    );
+  }
+
+  /// Parses [activeAccountHeaderRenderer]; returns `null` when guest/stale.
+  static AccountInfo? fromAccountMenu(dynamic data) {
+    final header = _firstMap(data, 'activeAccountHeaderRenderer');
+    if (header == null) return null;
+    final name = _accountText(header['accountName']);
+    if (name == null || name.isEmpty) return null;
+    final email = _accountText(header['email']);
+    final handle = _accountText(header['channelHandle']);
+    String? photoUrl;
+    final photo = header['accountPhoto'];
+    if (photo is Map) {
+      final thumbs = photo['thumbnails'];
+      if (thumbs is List && thumbs.isNotEmpty) {
+        final last = thumbs.last;
+        if (last is Map && last['url'] is String) {
+          photoUrl = last['url'] as String;
+        }
+      }
+    }
+    return AccountInfo(
+      name: name,
+      email: email,
+      channelHandle: handle,
+      photoUrl: photoUrl,
+    );
+  }
+
+  static Map<String, dynamic>? _firstMap(dynamic data, String key) {
+    if (data is Map && data[key] is Map) {
+      return Map<String, dynamic>.from(data[key] as Map);
+    }
+    if (data is Map) {
+      for (final value in data.values) {
+        final found = _firstMap(value, key);
+        if (found != null) return found;
+      }
+    } else if (data is List) {
+      for (final value in data) {
+        final found = _firstMap(value, key);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  static String? _accountText(dynamic node) {
+    if (node == null) return null;
+    if (node is String) return node.isEmpty ? null : node;
+    if (node is! Map) return null;
+    final simple = node['simpleText'];
+    if (simple is String && simple.isNotEmpty) return simple;
+    final runs = node['runs'];
+    if (runs is List) {
+      final text = runs
+          .map((r) => r is Map ? r['text'] : null)
+          .whereType<String>()
+          .join();
+      if (text.isNotEmpty) return text;
+    }
+    return null;
+  }
+
+  @override
+  String toString() =>
+      'AccountInfo(name: $name, email: $email, channelHandle: $channelHandle)';
+}
