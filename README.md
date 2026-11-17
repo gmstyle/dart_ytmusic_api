@@ -28,7 +28,7 @@ Add the following line to your `pubspec.yaml` file under the `dependencies` sect
 
 ```yaml
 dependencies:
-  dart_ytmusic_api: ^1.3.5
+  dart_ytmusic_api: ^1.9.5
 ```
 
 Then, run `flutter pub get` (for Flutter projects) or `dart pub get` (for general Dart projects) to install the package.
@@ -57,7 +57,14 @@ The following methods are available in the `YTMusic` class:
 
 **Initialization**
 
-- `initialize(cookies: String, gl: String, hl: String)`: Initializes the API with the provided cookies, geolocation, and language.
+- `initialize({cookies, gl, hl, ytMusicHomeRawHtml})`: Initializes the API with the provided cookies, geolocation, language, or pre-fetched HTML (reset `hasInitialized = false` before calling again to reload config after changing session cookies).
+
+**Account & Authentication**
+
+- `getAccountInfo()`: Queries `account/account_menu` and returns the signed-in `AccountInfo` (`name`, `email`, `channelHandle`, `photoUrl`), or `null` when guest.
+- `applyAuthCookies(cookieJar, cookies)` / `clearAuthCookies(cookieJar)` / `isSignedIn(cookieJar)`: Cookie-jar helpers for applying, clearing, and checking a YouTube Music session across `www.youtube.com`, `music.youtube.com`, and `m.youtube.com` (forcing `SOCS=CAI` so consent stubs do not block streams).
+- `filterYoutubeSessionCookies(cookies)` / `jarHasLoginInfo(cookieMap)`: Filters WebView cookie exports down to YouTube session cookies and checks whether `LOGIN_INFO` is present.
+- `authorizationHeader(cookies, origin, {userSessionId})`: Builds the multi-hash `SAPISIDHASH` `Authorization` header for authenticated InnerTube calls.
 
 **Search**
 
@@ -130,6 +137,7 @@ The following methods are available in the `YTMusic` class:
 - **`description`**: Available on `ArtistFull`, `AlbumFull` and `PlaylistFull`, containing the description text shown on the item's YouTube Music page, if any.
 - **`radioId` / `shuffleId`**: On `ArtistFull`, watch-playlist ids for Start radio (`RDEM…`) and Shuffle (`RDAO…`).
 - **`tracks`**: On `PlaylistFull`, loaded with `getPlaylist({limit})` (default 100).
+- **`AccountInfo`**: Returned by `getAccountInfo()` (and `AccountInfo.fromAccountMenu` / `fromMap` / `toMap`) with `name`, `email`, `channelHandle`, and `photoUrl`.
 
 ## Contributing
 

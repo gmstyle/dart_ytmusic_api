@@ -32,6 +32,7 @@ New comments in English.
 ## Invariants
 
 - **Config** is scraped from `ytcfg.set({...})` in the homepage HTML, with hardcoded fallbacks. `SOCS=CAI` is set in `initialize()` to skip the Google consent gate. Large bodies are decoded with `Isolate.run`.
+- **Authenticated sessions** send `Authorization: SAPISIDHASH` (plus `SAPISID1PHASH` / `SAPISID3PHASH`, with `_u` when `USER_SESSION_ID` is present in `ytcfg`). `applyAuthCookies` mirrors session cookies across `www`, `music`, and `m.youtube.com` and forces `SOCS=CAI`. `getAccountInfo` parses `activeAccountHeaderRenderer` from `account/account_menu` into `AccountInfo`.
 - **`getTimedLyrics`** overrides the client with `androidClientName` / `androidClientVersion` (`lib/enums.dart`). A malformed body returns `null`.
 - **Browse id prefixes are idempotent.** Strip then re-add: playlists `VL`, podcasts `MPSP`, episodes `MPED`. `RDAMVM…` song radios have no browse shelf — load them with `getWatchPlaylist`, not `browse`.
 - **`getPlaylist` / `getPodcast`** default `limit` is 100 and follow continuations. `getPlaylistVideos` is the uncapped track list.
@@ -56,4 +57,6 @@ New comments in English.
 | `lib/utils/artists.dart` | Collaboration credits from `runs` |
 | `lib/utils/continuation_token.dart` | Next-page token selection |
 | `lib/utils/playable_video_id.dart` | Canonical redirect id |
+| `lib/utils/auth_cookies.dart` | Session cookie mirroring, filtering, login detection, and logout cleanup |
+| `lib/utils/sapisid.dart` | `SAPISIDHASH` `Authorization` header generation |
 | `page.html` | Offline `initialize` fixture |
