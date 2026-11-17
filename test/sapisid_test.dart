@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dart_ytmusic_api/parsers/parser.dart';
 import 'package:dart_ytmusic_api/parsers/song_parser.dart';
