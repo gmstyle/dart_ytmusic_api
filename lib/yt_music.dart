@@ -32,10 +32,15 @@ class YTMusic {
     return _instance;
   }
 
-  YTMusic._internal() {
-    cookieJar = CookieJar();
+  /// Creates an isolated [YTMusic] instance (e.g. for unit tests).
+  factory YTMusic.withClient({http.Client? httpClient, CookieJar? cookieJar}) {
+    return YTMusic._internal(httpClient: httpClient, cookieJar: cookieJar);
+  }
+
+  YTMusic._internal({http.Client? httpClient, CookieJar? cookieJar}) {
+    this.cookieJar = cookieJar ?? CookieJar();
     config = {};
-    _client = http.Client();
+    _client = httpClient ?? http.Client();
     _baseHeaders = {
       "User-Agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
@@ -115,6 +120,11 @@ class YTMusic {
     config['INNERTUBE_API_KEY'] = '';
     config['VISITOR_DATA'] = '';
     config['USER_SESSION_ID'] = '';
+    config['SESSION_INDEX'] = '';
+    config['DELEGATED_SESSION_ID'] = '';
+    config['DATASYNC_ID'] = '';
+    config['LOGGED_IN'] = '';
+    config['STS'] = '';
     config['GL'] = 'US';
     config['HL'] = 'en';
     config['DEVICE'] = '';
@@ -196,9 +206,25 @@ class YTMusic {
       'GL',
       'HL',
       'USER_SESSION_ID',
+      'SESSION_INDEX',
+      'DELEGATED_SESSION_ID',
+      'DATASYNC_ID',
+      'LOGGED_IN',
+      'STS',
     ]) {
       final v = ytcfg[key];
       if (v != null) config[key] = v.toString();
+    }
+    if ((config['SESSION_INDEX'] ?? '').isEmpty &&
+        ytcfg['sessionIndex'] != null) {
+      config['SESSION_INDEX'] = ytcfg['sessionIndex'].toString();
+    }
+    if ((config['DELEGATED_SESSION_ID'] ?? '').isEmpty &&
+        ytcfg['delegatedSessionId'] != null) {
+      config['DELEGATED_SESSION_ID'] = ytcfg['delegatedSessionId'].toString();
+    }
+    if ((config['STS'] ?? '').isEmpty && ytcfg['signatureTimestamp'] != null) {
+      config['STS'] = ytcfg['signatureTimestamp'].toString();
     }
   }
 
@@ -273,7 +299,8 @@ class YTMusic {
     );
 
     final cookies = await cookieJar.loadForRequest(uri);
-    final cookieString = cookies
+    final nonEmptyCookies = cookies.where((c) => c.value.isNotEmpty).toList();
+    final cookieString = nonEmptyCookies
         .map((cookie) => '${cookie.name}=${cookie.value}')
         .join('; ');
 
@@ -284,7 +311,6 @@ class YTMusic {
       "origin": "https://music.youtube.com",
       "referer": "https://music.youtube.com/",
       "x-origin": "https://music.youtube.com",
-      "x-goog-authuser": "0",
       "X-Goog-Visitor-Id": config['VISITOR_DATA'] ?? "",
       "X-YouTube-Client-Name": config['INNERTUBE_CONTEXT_CLIENT_NAME'] ?? '',
       "X-YouTube-Client-Version": config['INNERTUBE_CLIENT_VERSION'] ?? '',
@@ -302,7 +328,7 @@ class YTMusic {
       headers['cookie'] = cookieString;
     }
 
-    final cookieMap = {for (final c in cookies) c.name: c.value};
+    final cookieMap = {for (final c in nonEmptyCookies) c.name: c.value};
     final auth = authorizationHeader(
       cookieMap,
       'https://music.youtube.com',
@@ -310,6 +336,16 @@ class YTMusic {
     );
     if (auth != null) {
       headers['Authorization'] = auth;
+      headers['X-Youtube-Bootstrap-Logged-In'] = 'true';
+      final sessionIndex = config['SESSION_INDEX'];
+      headers['X-Goog-AuthUser'] =
+          (sessionIndex != null && sessionIndex.isNotEmpty)
+          ? sessionIndex
+          : '0';
+      final delegatedId = config['DELEGATED_SESSION_ID'];
+      if (delegatedId != null && delegatedId.isNotEmpty) {
+        headers['X-Goog-PageId'] = delegatedId;
+      }
     }
 
     final requestBody = {
@@ -365,8 +401,8 @@ class YTMusic {
         body: json.encode(requestBody),
       );
 
-      // Do not absorb Set-Cookie from youtubei POSTs — they often clear
-      // SAPISID/SID (Max-Age=0) and break stream resolution.
+      // Absorb rotated cookies; usableSetCookies ignores Max-Age<=0 / empty wipes.
+      await saveSetCookiesFromResponse(cookieJar, uri, response);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // Decode JSON in a separate isolate to avoid blocking the main thread
@@ -538,7 +574,10 @@ class YTMusic {
       throw Exception("Invalid videoId");
     }
 
-    final data = await constructRequest("player", body: {"videoId": videoId});
+    final data = await constructRequest(
+      "player",
+      body: {"videoId": videoId, "contentCheckOk": true, "racyCheckOk": true},
+    );
     final nextInfo = await _getCurrentTrackInfoFromNext(videoId);
     final song = SongParser.parse(
       data,
@@ -736,7 +775,10 @@ class YTMusic {
       throw Exception("Invalid videoId");
     }
 
-    final data = await constructRequest("player", body: {"videoId": videoId});
+    final data = await constructRequest(
+      "player",
+      body: {"videoId": videoId, "contentCheckOk": true, "racyCheckOk": true},
+    );
     final nextInfo = await _getCurrentTrackInfoFromNext(videoId);
     final video = VideoParser.parse(
       data,

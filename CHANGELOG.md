@@ -1,3 +1,11 @@
+## Unreleased
+
+**Fixes**
+- Extract `SESSION_INDEX`, `DELEGATED_SESSION_ID`, `DATASYNC_ID`, `LOGGED_IN`, and `STS` from `ytcfg`.
+- Send `X-Youtube-Bootstrap-Logged-In: true`, `X-Goog-AuthUser` (from `SESSION_INDEX`), and `X-Goog-PageId` (from `DELEGATED_SESSION_ID`) only on authenticated requests, omitting `x-goog-authuser` when signed out.
+- Re-enable safe `Set-Cookie` rotation persistence on `constructRequest` responses (`usableSetCookies` continues to ignore empty / `Max-Age=0` wipes).
+- Pass `contentCheckOk: true` and `racyCheckOk: true` in `getSong` and `getVideo` `/player` requests.
+
 ## 1.9.5
 
 **Fixes**

@@ -1,9 +1,9 @@
+import 'dart:convert';
+
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dart_ytmusic_api/parsers/parser.dart';
-import 'package:dart_ytmusic_api/parsers/song_parser.dart';
-import 'package:dart_ytmusic_api/types.dart';
-import 'package:dart_ytmusic_api/utils/auth_cookies.dart';
-import 'package:dart_ytmusic_api/utils/sapisid.dart';
+import 'package:dart_ytmusic_api/dart_ytmusic_api.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -262,6 +262,105 @@ void main() {
       });
       expect(section.title, 'Quick picks');
       expect(section.contents, isNotEmpty);
+    });
+  });
+
+  group('YTMusic session config and auth headers', () {
+    const sampleHtml = '''
+<!doctype html><html><head><script>
+ytcfg.set({
+  "VISITOR_DATA": "CgtsZWFk",
+  "USER_SESSION_ID": "12345",
+  "SESSION_INDEX": 2,
+  "DELEGATED_SESSION_ID": "delegated-page-id",
+  "DATASYNC_ID": "ds-1",
+  "LOGGED_IN": true,
+  "STS": 20123,
+  "INNERTUBE_API_KEY": "test-key",
+  "INNERTUBE_CLIENT_VERSION": "1.20260707.12.00"
+});
+</script></head><body></body></html>
+''';
+
+    test(
+      'extracts session fields and sends auth headers when signed in',
+      () async {
+        final recordedRequests = <http.Request>[];
+        final mockClient = MockClient((req) async {
+          recordedRequests.add(req);
+          if (req.url.path.endsWith('/player')) {
+            return http.Response(
+              jsonEncode({
+                'videoDetails': {
+                  'videoId': 'abcdefghijk',
+                  'title': 'Song',
+                  'author': 'Artist',
+                  'lengthSeconds': '180',
+                  'channelId': 'UC123',
+                },
+              }),
+              200,
+              headers: {
+                'set-cookie':
+                    'SAPISID=; Max-Age=0; Path=/; Domain=.youtube.com, '
+                    'SIDCC=rotated-sidcc; Path=/; Domain=.youtube.com; Secure',
+              },
+            );
+          }
+          return http.Response('{}', 200);
+        });
+
+        final yt = YTMusic.withClient(httpClient: mockClient);
+        await applyAuthCookies(yt.cookieJar, [
+          Cookie('SAPISID', 'secret-sapisid')..domain = '.youtube.com',
+          Cookie('LOGIN_INFO', 'login-token')..domain = '.youtube.com',
+        ]);
+        await yt.initialize(ytMusicHomeRawHtml: sampleHtml);
+
+        expect(yt.config['SESSION_INDEX'], '2');
+        expect(yt.config['DELEGATED_SESSION_ID'], 'delegated-page-id');
+        expect(yt.config['DATASYNC_ID'], 'ds-1');
+        expect(yt.config['LOGGED_IN'], 'true');
+        expect(yt.config['STS'], '20123');
+
+        await yt.getSong('abcdefghijk');
+
+        final playerReq = recordedRequests.firstWhere(
+          (r) => r.url.path.endsWith('/player'),
+        );
+        expect(playerReq.headers['Authorization'], contains('SAPISIDHASH '));
+        expect(playerReq.headers['Authorization'], contains('_u'));
+        expect(playerReq.headers['X-Youtube-Bootstrap-Logged-In'], 'true');
+        expect(playerReq.headers['X-Goog-AuthUser'], '2');
+        expect(playerReq.headers['X-Goog-PageId'], 'delegated-page-id');
+
+        final playerBody = jsonDecode(playerReq.body) as Map<String, dynamic>;
+        expect(playerBody['contentCheckOk'], isTrue);
+        expect(playerBody['racyCheckOk'], isTrue);
+
+        final updatedCookies = await loadCookieMap(yt.cookieJar, kMusicOrigin);
+        expect(updatedCookies['SAPISID'], 'secret-sapisid');
+        expect(updatedCookies['SIDCC'], 'rotated-sidcc');
+      },
+    );
+
+    test('omits auth headers when signed out', () async {
+      final recordedRequests = <http.Request>[];
+      final mockClient = MockClient((req) async {
+        recordedRequests.add(req);
+        return http.Response('{}', 200);
+      });
+
+      final yt = YTMusic.withClient(httpClient: mockClient);
+      await yt.initialize(ytMusicHomeRawHtml: sampleHtml);
+      await yt.constructRequest('browse', body: {'browseId': 'FEmusic_home'});
+
+      final req = recordedRequests.single;
+      expect(req.headers.containsKey('Authorization'), isFalse);
+      expect(req.headers.containsKey('X-Youtube-Bootstrap-Logged-In'), isFalse);
+      expect(req.headers.containsKey('x-goog-authuser'), isFalse);
+      expect(req.headers.containsKey('X-Goog-AuthUser'), isFalse);
+      expect(req.headers.containsKey('X-Goog-PageId'), isFalse);
     });
   });
 }
