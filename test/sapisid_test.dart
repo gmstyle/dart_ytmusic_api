@@ -361,6 +361,207 @@ ytcfg.set({
       expect(req.headers.containsKey('x-goog-authuser'), isFalse);
       expect(req.headers.containsKey('X-Goog-AuthUser'), isFalse);
       expect(req.headers.containsKey('X-Goog-PageId'), isFalse);
+      expect(
+        req.headers['X-YouTube-Utc-Offset'],
+        DateTime.now().timeZoneOffset.inMinutes.toString(),
+      );
+      final reqBody = jsonDecode(req.body) as Map<String, dynamic>;
+      expect(
+        reqBody['context']['client']['utcOffsetMinutes'],
+        DateTime.now().timeZoneOffset.inMinutes,
+      );
+      expect(reqBody['context']['client']['visitorData'], 'CgtsZWFk');
     });
+
+    test(
+      'ignores SOCS Set-Cookie, deduplicates host-only rotated cookies, and notifies listener',
+      () async {
+        final recordedRequests = <http.Request>[];
+        final mockClient = MockClient((req) async {
+          recordedRequests.add(req);
+          return http.Response(
+            '{}',
+            200,
+            headers: {
+              'set-cookie':
+                  'SOCS=CAIS-overwrite; Path=/; Domain=.youtube.com, '
+                  'SIDCC=rotated-host-only; Path=/; Secure',
+            },
+          );
+        });
+
+        final yt = YTMusic.withClient(httpClient: mockClient);
+        var rotations = 0;
+        yt.onSessionCookiesChanged = () => rotations++;
+        await applyAuthCookies(yt.cookieJar, [
+          Cookie('SAPISID', 'secret-sapisid')..domain = '.youtube.com',
+          Cookie('SIDCC', 'initial-sidcc')..domain = '.youtube.com',
+        ]);
+        await yt.initialize(ytMusicHomeRawHtml: sampleHtml);
+
+        await yt.constructRequest('browse', body: {'browseId': 'FEmusic_home'});
+        expect(rotations, 1);
+
+        final cookies = await loadCookieMap(yt.cookieJar, kMusicOrigin);
+        expect(cookies['SOCS'], kYtSocsConsentValue);
+        expect(cookies['SIDCC'], 'rotated-host-only');
+
+        await yt.constructRequest('browse', body: {'browseId': 'FEmusic_home'});
+        final secondCookieHeader = recordedRequests[1].headers['cookie'] ?? '';
+        expect('SIDCC='.allMatches(secondCookieHeader), hasLength(1));
+        expect(secondCookieHeader, contains('SIDCC=rotated-host-only'));
+      },
+    );
+
+    test(
+      'wiping LOGIN_INFO clears auth cookies and triggers onSessionRevoked',
+      () async {
+        final mockClient = MockClient((req) async {
+          return http.Response(
+            '{}',
+            200,
+            headers: {
+              'set-cookie':
+                  'LOGIN_INFO=; Max-Age=0; Path=/; Domain=.youtube.com',
+            },
+          );
+        });
+
+        final yt = YTMusic.withClient(httpClient: mockClient);
+        var revokedCalls = 0;
+        yt.onSessionRevoked = () async {
+          revokedCalls++;
+        };
+        await applyAuthCookies(yt.cookieJar, [
+          Cookie('SAPISID', 'secret-sapisid')..domain = '.youtube.com',
+          Cookie('LOGIN_INFO', 'login-token')..domain = '.youtube.com',
+        ]);
+        await yt.initialize(ytMusicHomeRawHtml: sampleHtml);
+
+        await yt.constructRequest('browse', body: {'browseId': 'FEmusic_home'});
+
+        expect(revokedCalls, 1);
+        expect(await isSignedIn(yt.cookieJar), isFalse);
+        expect(yt.config['USER_SESSION_ID'], isEmpty);
+        expect(yt.config['LOGGED_IN'], isEmpty);
+      },
+    );
+
+    test(
+      'getTimedLyrics uses ANDROID_MUSIC headers without web cookies or SAPISIDHASH',
+      () async {
+        final recordedRequests = <http.Request>[];
+        final mockClient = MockClient((req) async {
+          recordedRequests.add(req);
+          if (req.url.path.endsWith('/next')) {
+            return http.Response(
+              jsonEncode({
+                'tabs': [
+                  {
+                    'tabRenderer': {'browseId': 'upnext'},
+                  },
+                  {
+                    'tabRenderer': {
+                      'endpoint': {
+                        'browseEndpoint': {'browseId': 'MPLYt_123'},
+                      },
+                    },
+                  },
+                ],
+              }),
+              200,
+            );
+          }
+          return http.Response(jsonEncode({'contents': {}}), 200);
+        });
+
+        final yt = YTMusic.withClient(httpClient: mockClient);
+        await applyAuthCookies(yt.cookieJar, [
+          Cookie('SAPISID', 'secret-sapisid')..domain = '.youtube.com',
+          Cookie('LOGIN_INFO', 'login-token')..domain = '.youtube.com',
+        ]);
+        await yt.initialize(ytMusicHomeRawHtml: sampleHtml);
+
+        await yt.getTimedLyrics('abcdefghijk');
+
+        final browseReq = recordedRequests.last;
+        expect(browseReq.headers['X-YouTube-Client-Name'], '21');
+        expect(
+          browseReq.headers['X-YouTube-Client-Version'],
+          androidClientVersion,
+        );
+        expect(browseReq.headers.containsKey('cookie'), isFalse);
+        expect(browseReq.headers.containsKey('Authorization'), isFalse);
+        expect(browseReq.headers.containsKey('origin'), isFalse);
+      },
+    );
+
+    test('HTTP 403 refreshes live config once and retries POST', () async {
+      var homeFetches = 0;
+      var browsePosts = 0;
+      final mockClient = MockClient((req) async {
+        if (req.method == 'GET' && req.url.path == '/') {
+          homeFetches++;
+          return http.Response(sampleHtml, 200);
+        }
+        if (req.method == 'POST' && req.url.path.endsWith('/browse')) {
+          browsePosts++;
+          if (browsePosts == 1) {
+            return http.Response('forbidden', 403);
+          }
+          return http.Response(jsonEncode({'ok': true}), 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final yt = YTMusic.withClient(httpClient: mockClient);
+      await yt.initialize();
+      final result = await yt.constructRequest(
+        'browse',
+        body: {'browseId': 'FEmusic_home'},
+      );
+
+      expect(homeFetches, 2);
+      expect(browsePosts, 2);
+      expect(result, {'ok': true});
+    });
+
+    test(
+      'resolvePlayableVideoId and getAlbumBrowseId send SOCS=CAI once',
+      () async {
+        final recordedGets = <http.Request>[];
+        final mockClient = MockClient((req) async {
+          recordedGets.add(req);
+          if (req.url.path == '/watch') {
+            return http.Response(
+              '<link rel="canonical" href="https://music.youtube.com/watch?v=zzzzzzzzzzz">',
+              200,
+            );
+          }
+          if (req.url.path == '/playlist') {
+            return http.Response('"browseId":"MPREb_123456"', 200);
+          }
+          return http.Response('', 404);
+        });
+
+        final yt = YTMusic.withClient(httpClient: mockClient);
+        await applyAuthCookies(yt.cookieJar, [
+          Cookie('SAPISID', 'secret-sapisid')..domain = '.youtube.com',
+        ]);
+        await yt.initialize(ytMusicHomeRawHtml: sampleHtml);
+
+        final playable = await yt.resolvePlayableVideoId('abcdefghijk');
+        final albumId = await yt.getAlbumBrowseId('OLAK5uy_1234567890');
+
+        expect(playable, 'zzzzzzzzzzz');
+        expect(albumId, 'MPREb_123456');
+        expect(recordedGets, hasLength(2));
+        for (final req in recordedGets) {
+          final cookie = req.headers['cookie'] ?? '';
+          expect('SOCS='.allMatches(cookie), hasLength(1));
+          expect(cookie, contains('SOCS=CAI'));
+        }
+      },
+    );
   });
 }

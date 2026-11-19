@@ -84,9 +84,25 @@ List<Cookie> filterYoutubeSessionCookies(Iterable<Cookie> cookies) {
   ];
 }
 
+/// Deduplicates [cookies] into a name → value map, skipping empty values.
+///
+/// Keeps the first occurrence of each name because [CookieJar.loadForRequest]
+/// yields more-specific host/path cookies before domain-wide ones.
+Map<String, String> cleanCookieMap(Iterable<Cookie> cookies) {
+  final map = <String, String>{};
+  for (final c in cookies) {
+    if (c.value.isEmpty) continue;
+    map.putIfAbsent(c.name, () => c.value);
+  }
+  return map;
+}
+
+/// Formats a cookie name → value map into a `Cookie` HTTP header value.
+String formatCookieHeader(Map<String, String> cookies) =>
+    cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+
 Future<Map<String, String>> loadCookieMap(CookieJar jar, Uri uri) async {
-  final cookies = await jar.loadForRequest(uri);
-  return {for (final c in cookies) c.name: c.value};
+  return cleanCookieMap(await jar.loadForRequest(uri));
 }
 
 /// Signed in when an auth cookie is present for both www and music origins.
@@ -106,12 +122,19 @@ const kYtSocsConsentValue = 'CAI';
 
 /// Saves [cookies] onto the www and music jars (and mobile when present).
 ///
-/// Always ends by writing [kYtSocsConsentValue] so a login export cannot leave
-/// a Music-breaking `SOCS` in the jar.
+/// Normalizes cookies onto `.youtube.com` (`/` path) and always ends by writing
+/// [kYtSocsConsentValue] so a login export cannot leave a Music-breaking `SOCS`.
 Future<void> applyAuthCookies(CookieJar jar, Iterable<Cookie> cookies) async {
-  final list = [
+  final list = <Cookie>[
     for (final c in cookies)
-      if (c.name != 'SOCS') c,
+      if (c.name != 'SOCS' && c.value.isNotEmpty)
+        Cookie(c.name, c.value)
+          ..domain = '.youtube.com'
+          ..path = '/'
+          ..secure = c.secure
+          ..httpOnly = c.httpOnly
+          ..expires = c.expires
+          ..maxAge = c.maxAge,
   ];
   if (list.isNotEmpty) {
     await jar.saveFromResponse(kYoutubeOrigin, list);
@@ -191,6 +214,43 @@ List<Cookie> usableSetCookies(Iterable<Cookie> cookies) {
   return out;
 }
 
+/// Returns `true` when any raw `Set-Cookie` header explicitly wipes `LOGIN_INFO`.
+///
+/// Server-side `LOGIN_INFO` expiry / deletion is the authoritative remote logout
+/// signal from YouTube.
+bool isLoginInfoWipeSetCookies(Iterable<String> rawSetCookies) {
+  final now = DateTime.now();
+  for (final raw in rawSetCookies) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) continue;
+    try {
+      final c = Cookie.fromSetCookieValue(trimmed);
+      if (c.name != 'LOGIN_INFO') continue;
+      if (c.value.isEmpty) return true;
+      if (c.maxAge != null && c.maxAge! <= 0) return true;
+      if (c.expires != null && !c.expires!.isAfter(now)) return true;
+    } catch (_) {
+      final eq = trimmed.indexOf('=');
+      if (eq <= 0 || trimmed.substring(0, eq).trim() != 'LOGIN_INFO') {
+        continue;
+      }
+      final rest = trimmed.substring(eq + 1);
+      final semi = rest.indexOf(';');
+      final value = (semi < 0 ? rest : rest.substring(0, semi)).trim();
+      if (value.isEmpty) return true;
+      if (RegExp(
+            r';\s*max-age\s*=\s*-?\d+',
+            caseSensitive: false,
+          ).firstMatch(trimmed)
+          case final m?) {
+        final age = int.tryParse(m.group(0)!.split('=').last.trim());
+        if (age != null && age <= 0) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /// Saves every `Set-Cookie` from [response] into [jar].
 ///
 /// Auth/session cookies with a non-empty value are mirrored onto www, music,
@@ -198,25 +258,57 @@ List<Cookie> usableSetCookies(Iterable<Cookie> cookies) {
 Future<void> saveSetCookiesFromResponse(
   CookieJar jar,
   Uri uri,
-  http.BaseResponse response,
-) async {
+  http.BaseResponse response, {
+  void Function()? onSessionCookiesChanged,
+  Future<void> Function()? onLoginInfoWiped,
+}) async {
   final raw = response.headersSplitValues['set-cookie'] ?? const <String>[];
-  await saveSetCookieHeaderValues(jar, uri, raw);
+  await saveSetCookieHeaderValues(
+    jar,
+    uri,
+    raw,
+    onSessionCookiesChanged: onSessionCookiesChanged,
+    onLoginInfoWiped: onLoginInfoWiped,
+  );
 }
 
 /// Same as [saveSetCookiesFromResponse] from already-split header strings.
 Future<void> saveSetCookieHeaderValues(
   CookieJar jar,
   Uri uri,
-  Iterable<String> values,
-) async {
-  final cookies = usableSetCookies(parseSetCookieHeaders(values));
-  if (cookies.isEmpty) return;
-  await jar.saveFromResponse(uri, cookies);
-  final toMirror = cookies
-      .where((c) => kYtSessionMirrorCookieNames.contains(c.name))
-      .toList();
-  if (toMirror.isNotEmpty) {
-    await applyAuthCookies(jar, toMirror);
+  Iterable<String> values, {
+  void Function()? onSessionCookiesChanged,
+  Future<void> Function()? onLoginInfoWiped,
+}) async {
+  if (isLoginInfoWipeSetCookies(values)) {
+    await clearAuthCookies(jar);
+    if (onLoginInfoWiped != null) {
+      await onLoginInfoWiped();
+    }
+    return;
+  }
+
+  final usable = [
+    for (final c in usableSetCookies(parseSetCookieHeaders(values)))
+      if (c.name != 'SOCS') c,
+  ];
+  if (usable.isEmpty) return;
+
+  final sessionCookies = <Cookie>[];
+  final otherCookies = <Cookie>[];
+  for (final c in usable) {
+    if (kYtSessionMirrorCookieNames.contains(c.name)) {
+      sessionCookies.add(c);
+    } else {
+      otherCookies.add(c);
+    }
+  }
+
+  if (otherCookies.isNotEmpty) {
+    await jar.saveFromResponse(uri, otherCookies);
+  }
+  if (sessionCookies.isNotEmpty) {
+    await applyAuthCookies(jar, sessionCookies);
+    onSessionCookiesChanged?.call();
   }
 }

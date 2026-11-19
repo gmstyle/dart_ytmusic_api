@@ -59,7 +59,17 @@ class YTMusic {
   late http.Client _client;
   late Map<String, String> _baseHeaders;
   bool hasInitialized = false;
+  bool _hasLiveConfig = false;
+  String? _overrideGl;
+  String? _overrideHl;
+  Future<void>? _configRefreshInFlight;
   String? ytMusicHomeRawHtml;
+
+  /// Invoked when a response rotates persistent session cookies (`Set-Cookie`).
+  void Function()? onSessionCookiesChanged;
+
+  /// Invoked when a response explicitly wipes `LOGIN_INFO` (remote logout).
+  Future<void> Function()? onSessionRevoked;
 
   /// Initializes the YTMusic instance with provided cookies, geolocation, and language.
   Future<YTMusic> initialize({
@@ -68,39 +78,29 @@ class YTMusic {
     String? hl,
     String? ytMusicHomeRawHtml,
   }) async {
-    // Start initialization
+    if (gl != null) _overrideGl = gl;
+    if (hl != null) _overrideHl = hl;
+    if (ytMusicHomeRawHtml != null) {
+      this.ytMusicHomeRawHtml = ytMusicHomeRawHtml;
+    }
 
-    if (hasInitialized) {
+    if (hasInitialized && _hasLiveConfig) {
       return this;
     }
 
-    // Accept optional pre-fetched HTML
-    this.ytMusicHomeRawHtml = ytMusicHomeRawHtml;
-    if (ytMusicHomeRawHtml != null) {}
-
-    // Process incoming cookies string if provided
     if (cookies != null) {
-      for (final cookieString in cookies.split('; ')) {
-        try {
-          final cookie = Cookie.fromSetCookieValue(cookieString);
-          cookieJar.saveFromResponse(Uri.parse('https://www.youtube.com/'), [
-            cookie,
-          ]);
-        } catch (e) {
-          //
-        }
-      }
-    } else {}
+      await applyAuthCookies(cookieJar, parseCookieHeader(cookies));
+    }
 
     // Fetch configuration from YouTube Music homepage (or provided HTML)
     await fetchConfig();
 
     // Override GL/HL if user supplied them explicitly
-    if (gl != null) {
-      config['GL'] = gl;
+    if (_overrideGl != null) {
+      config['GL'] = _overrideGl!;
     }
-    if (hl != null) {
-      config['HL'] = hl;
+    if (_overrideHl != null) {
+      config['HL'] = _overrideHl!;
     }
 
     hasInitialized = true;
@@ -108,41 +108,63 @@ class YTMusic {
     return this;
   }
 
-  /// Fetches the configuration data required for API requests.
-  Future<void> fetchConfig() async {
+  /// Fetches the configuration data required for API requests (single-flight).
+  Future<void> fetchConfig() {
+    final inFlight = _configRefreshInFlight;
+    if (inFlight != null) return inFlight;
+    final future = _fetchConfigImpl().whenComplete(() {
+      _configRefreshInFlight = null;
+    });
+    _configRefreshInFlight = future;
+    return future;
+  }
+
+  Future<void> _fetchConfigImpl() async {
     // Hardcoded fallbacks — stable values that rarely/never change.
     // INNERTUBE_CLIENT_VERSION is the only one that drifts; we try to extract
     // it from the homepage HTML below and fall back to this known-good value.
-    config['INNERTUBE_API_VERSION'] = 'v1';
-    config['INNERTUBE_CLIENT_NAME'] = 'WEB_REMIX';
-    config['INNERTUBE_CONTEXT_CLIENT_NAME'] = '67';
-    config['INNERTUBE_CLIENT_VERSION'] = '1.20260505.09.00';
-    config['INNERTUBE_API_KEY'] = '';
-    config['VISITOR_DATA'] = '';
-    config['USER_SESSION_ID'] = '';
-    config['SESSION_INDEX'] = '';
-    config['DELEGATED_SESSION_ID'] = '';
-    config['DATASYNC_ID'] = '';
-    config['LOGGED_IN'] = '';
-    config['STS'] = '';
-    config['GL'] = 'US';
-    config['HL'] = 'en';
-    config['DEVICE'] = '';
-    config['PAGE_CL'] = '';
-    config['PAGE_BUILD_LABEL'] = '';
+    final nextConfig = <String, String>{
+      'INNERTUBE_API_VERSION': 'v1',
+      'INNERTUBE_CLIENT_NAME': 'WEB_REMIX',
+      'INNERTUBE_CONTEXT_CLIENT_NAME': '67',
+      'INNERTUBE_CLIENT_VERSION': '1.20260707.12.00',
+      'INNERTUBE_API_KEY': '',
+      'VISITOR_DATA': '',
+      'USER_SESSION_ID': '',
+      'SESSION_INDEX': '',
+      'DELEGATED_SESSION_ID': '',
+      'DATASYNC_ID': '',
+      'LOGGED_IN': '',
+      'STS': '',
+      'GL': 'US',
+      'HL': 'en',
+      'DEVICE': '',
+      'PAGE_CL': '',
+      'PAGE_BUILD_LABEL': '',
+    };
 
     var html = ytMusicHomeRawHtml;
+    var liveHtmlFetched = false;
     final uri = Uri.parse('https://music.youtube.com/');
     if (html == null) {
       final first = await _fetchMusicHomepage(uri);
-      if (first == null) return;
+      if (first == null) {
+        if (_overrideGl != null) nextConfig['GL'] = _overrideGl!;
+        if (_overrideHl != null) nextConfig['HL'] = _overrideHl!;
+        config
+          ..clear()
+          ..addAll(nextConfig);
+        _hasLiveConfig = false;
+        return;
+      }
       html = first;
+      liveHtmlFetched = true;
 
       // Auth cookies often need one homepage hit to rotate SID/LOGIN_INFO
       // before ytcfg reports LOGGED_IN / USER_SESSION_ID.
-      _applyYtcfgFromHtml(html);
+      _applyYtcfgFromHtml(html, target: nextConfig);
       final signedIn = await isSignedIn(cookieJar);
-      final sessionId = config['USER_SESSION_ID'] ?? '';
+      final sessionId = nextConfig['USER_SESSION_ID'] ?? '';
       if (signedIn && sessionId.isEmpty) {
         final second = await _fetchMusicHomepage(uri);
         if (second != null) {
@@ -155,14 +177,56 @@ class YTMusic {
       print(
         'Warning: YouTube Music returned a compatibility warning page — using hardcoded fallback config',
       );
+      if (_overrideGl != null) nextConfig['GL'] = _overrideGl!;
+      if (_overrideHl != null) nextConfig['HL'] = _overrideHl!;
+      config
+        ..clear()
+        ..addAll(nextConfig);
+      _hasLiveConfig = false;
       return; // fallbacks already set above
     }
 
-    _applyYtcfgFromHtml(html);
+    _applyYtcfgFromHtml(html, target: nextConfig);
+    if (_overrideGl != null) nextConfig['GL'] = _overrideGl!;
+    if (_overrideHl != null) nextConfig['HL'] = _overrideHl!;
+    config
+      ..clear()
+      ..addAll(nextConfig);
+    _hasLiveConfig =
+        ytMusicHomeRawHtml != null ||
+        (liveHtmlFetched && (config['VISITOR_DATA'] ?? '').isNotEmpty);
+  }
+
+  Future<Map<String, String>> _loadCookiesForRequest(
+    Uri uri, {
+    bool forceSocs = false,
+  }) async {
+    final map = cleanCookieMap(await cookieJar.loadForRequest(uri));
+    if (forceSocs) {
+      map['SOCS'] = kYtSocsConsentValue;
+    }
+    return map;
+  }
+
+  Future<void> _handleSessionRevoked() async {
+    for (final key in const [
+      'USER_SESSION_ID',
+      'SESSION_INDEX',
+      'DELEGATED_SESSION_ID',
+      'DATASYNC_ID',
+      'LOGGED_IN',
+    ]) {
+      config[key] = '';
+    }
+    if (onSessionRevoked != null) {
+      await onSessionRevoked!();
+    }
   }
 
   Future<String?> _fetchMusicHomepage(Uri uri) async {
-    final cookies = await cookieJar.loadForRequest(uri);
+    // SOCS=CAI bypasses Google's cookie-consent gate. Overwriting any other
+    // SOCS from the jar prevents Music returning the stub page.
+    final cookieMap = await _loadCookiesForRequest(uri, forceSocs: true);
     final headers = {
       ..._baseHeaders,
       'upgrade-insecure-requests': '1',
@@ -170,20 +234,20 @@ class YTMusic {
       'sec-fetch-mode': 'navigate',
       'sec-fetch-site': 'none',
       'sec-fetch-user': '?1',
+      'cookie': formatCookieHeader(cookieMap),
     };
-    // SOCS=CAI bypasses Google's cookie-consent gate. Drop any other SOCS
-    // from the jar first — a login-exported SOCS makes Music return the
-    // "not optimized for your browser" stub (no ytcfg / VISITOR_DATA).
-    final cleaned = cookies
-        .where((c) => c.name != 'SOCS')
-        .map((cookie) => '${cookie.name}=${cookie.value}')
-        .join('; ');
-    headers['cookie'] = cleaned.isNotEmpty
-        ? '$cleaned; SOCS=$kYtSocsConsentValue'
-        : 'SOCS=$kYtSocsConsentValue';
     try {
       final response = await _client.get(uri, headers: headers);
-      await saveSetCookiesFromResponse(cookieJar, uri, response);
+      await saveSetCookiesFromResponse(
+        cookieJar,
+        uri,
+        response,
+        onSessionCookiesChanged: onSessionCookiesChanged,
+        onLoginInfoWiped: _handleSessionRevoked,
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
       return response.body;
     } catch (e) {
       print('Warning: failed to fetch YouTube Music homepage: $e');
@@ -191,7 +255,8 @@ class YTMusic {
     }
   }
 
-  void _applyYtcfgFromHtml(String html) {
+  void _applyYtcfgFromHtml(String html, {Map<String, String>? target}) {
+    final dest = target ?? config;
     final ytcfg = _parseAllYtcfgBlocks(html);
     for (final key in const [
       'VISITOR_DATA',
@@ -213,18 +278,18 @@ class YTMusic {
       'STS',
     ]) {
       final v = ytcfg[key];
-      if (v != null) config[key] = v.toString();
+      if (v != null) dest[key] = v.toString();
     }
-    if ((config['SESSION_INDEX'] ?? '').isEmpty &&
+    if ((dest['SESSION_INDEX'] ?? '').isEmpty &&
         ytcfg['sessionIndex'] != null) {
-      config['SESSION_INDEX'] = ytcfg['sessionIndex'].toString();
+      dest['SESSION_INDEX'] = ytcfg['sessionIndex'].toString();
     }
-    if ((config['DELEGATED_SESSION_ID'] ?? '').isEmpty &&
+    if ((dest['DELEGATED_SESSION_ID'] ?? '').isEmpty &&
         ytcfg['delegatedSessionId'] != null) {
-      config['DELEGATED_SESSION_ID'] = ytcfg['delegatedSessionId'].toString();
+      dest['DELEGATED_SESSION_ID'] = ytcfg['delegatedSessionId'].toString();
     }
-    if ((config['STS'] ?? '').isEmpty && ytcfg['signatureTimestamp'] != null) {
-      config['STS'] = ytcfg['signatureTimestamp'].toString();
+    if ((dest['STS'] ?? '').isEmpty && ytcfg['signatureTimestamp'] != null) {
+      dest['STS'] = ytcfg['signatureTimestamp'].toString();
     }
   }
 
@@ -237,7 +302,14 @@ class YTMusic {
     while (true) {
       final idx = html.indexOf(marker, pos);
       if (idx == -1) break;
-      final start = idx + marker.length;
+      var start = idx + marker.length;
+      while (start < html.length &&
+          (html[start] == ' ' ||
+              html[start] == '\t' ||
+              html[start] == '\n' ||
+              html[start] == '\r')) {
+        start++;
+      }
       if (start >= html.length || html[start] != '{') {
         pos = idx + 1;
         continue;
@@ -285,7 +357,25 @@ class YTMusic {
     Map<String, dynamic> body = const {},
     Map<String, String> query = const {},
     ClientRequestOptions? options,
+  }) => _constructRequestInternal(
+    endpoint,
+    body: body,
+    query: query,
+    options: options,
+    allowRetryOn403: true,
+  );
+
+  Future<dynamic> _constructRequestInternal(
+    String endpoint, {
+    Map<String, dynamic> body = const {},
+    Map<String, String> query = const {},
+    ClientRequestOptions? options,
+    required bool allowRetryOn403,
   }) async {
+    if (hasInitialized && !_hasLiveConfig && ytMusicHomeRawHtml == null) {
+      await fetchConfig();
+    }
+
     final baseUrl = "https://music.youtube.com/";
     final fullQuery = {...query, "prettyPrint": "false"};
     final apiKey = config['INNERTUBE_API_KEY'];
@@ -293,58 +383,86 @@ class YTMusic {
       fullQuery["key"] = apiKey;
     }
 
+    final apiVersion = config['INNERTUBE_API_VERSION'] ?? 'v1';
     final uri = Uri.parse(baseUrl).replace(
-      path: "youtubei/${config['INNERTUBE_API_VERSION']}/$endpoint",
+      path: "youtubei/$apiVersion/$endpoint",
       queryParameters: fullQuery,
     );
 
-    final cookies = await cookieJar.loadForRequest(uri);
-    final nonEmptyCookies = cookies.where((c) => c.value.isNotEmpty).toList();
-    final cookieString = nonEmptyCookies
-        .map((cookie) => '${cookie.name}=${cookie.value}')
-        .join('; ');
+    final overrideClient = options?.clientName;
+    final isWebRemix = overrideClient == null || overrideClient == 'WEB_REMIX';
+    final isAndroidMusic = overrideClient == 'ANDROID_MUSIC';
+
+    final headerClientName = isWebRemix
+        ? (config['INNERTUBE_CONTEXT_CLIENT_NAME'] ?? '67')
+        : (isAndroidMusic ? '21' : overrideClient);
+    final headerClientVersion =
+        options?.clientVersion ??
+        (isWebRemix ? (config['INNERTUBE_CLIENT_VERSION'] ?? '') : '');
+    final bodyClientName =
+        overrideClient ?? config['INNERTUBE_CLIENT_NAME'] ?? 'WEB_REMIX';
+    final bodyClientVersion =
+        options?.clientVersion ?? config['INNERTUBE_CLIENT_VERSION'];
+
+    final visitorData = config['VISITOR_DATA'] ?? '';
+    final device = config['DEVICE'] ?? '';
+    final pageCl = config['PAGE_CL'] ?? '';
+    final pageLabel = config['PAGE_BUILD_LABEL'] ?? '';
+    final utcOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
 
     final headers = <String, String>{
-      ..._baseHeaders,
+      if (!isAndroidMusic)
+        ..._baseHeaders
+      else ...{
+        "User-Agent":
+            "com.google.android.apps.youtube.music/${headerClientVersion.isNotEmpty ? headerClientVersion : androidClientVersion} (Linux; U; Android 13) gzip",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
       "accept": "*/*",
       "content-type": "application/json",
-      "origin": "https://music.youtube.com",
-      "referer": "https://music.youtube.com/",
-      "x-origin": "https://music.youtube.com",
-      "X-Goog-Visitor-Id": config['VISITOR_DATA'] ?? "",
-      "X-YouTube-Client-Name": config['INNERTUBE_CONTEXT_CLIENT_NAME'] ?? '',
-      "X-YouTube-Client-Version": config['INNERTUBE_CLIENT_VERSION'] ?? '',
-      "X-YouTube-Device": config['DEVICE'] ?? '',
-      "X-YouTube-Page-CL": config['PAGE_CL'] ?? '',
-      "X-YouTube-Page-Label": config['PAGE_BUILD_LABEL'] ?? '',
-      "X-YouTube-Utc-Offset": (-DateTime.now().timeZoneOffset.inMinutes)
-          .toString(),
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "same-origin",
-      "sec-fetch-site": "same-origin",
+      if (isWebRemix) ...{
+        "origin": "https://music.youtube.com",
+        "referer": "https://music.youtube.com/",
+        "x-origin": "https://music.youtube.com",
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "same-origin",
+        "sec-fetch-site": "same-origin",
+      },
+      if (visitorData.isNotEmpty) "X-Goog-Visitor-Id": visitorData,
+      if (headerClientName.isNotEmpty)
+        "X-YouTube-Client-Name": headerClientName,
+      if (headerClientVersion.isNotEmpty)
+        "X-YouTube-Client-Version": headerClientVersion,
+      if (device.isNotEmpty) "X-YouTube-Device": device,
+      if (isWebRemix && pageCl.isNotEmpty) "X-YouTube-Page-CL": pageCl,
+      if (isWebRemix && pageLabel.isNotEmpty) "X-YouTube-Page-Label": pageLabel,
+      "X-YouTube-Utc-Offset": utcOffsetMinutes.toString(),
     };
 
-    if (cookieString.isNotEmpty) {
-      headers['cookie'] = cookieString;
-    }
+    if (!isAndroidMusic) {
+      final cookieMap = await _loadCookiesForRequest(uri);
+      final cookieString = formatCookieHeader(cookieMap);
+      if (cookieString.isNotEmpty) {
+        headers['cookie'] = cookieString;
+      }
 
-    final cookieMap = {for (final c in nonEmptyCookies) c.name: c.value};
-    final auth = authorizationHeader(
-      cookieMap,
-      'https://music.youtube.com',
-      userSessionId: config['USER_SESSION_ID'],
-    );
-    if (auth != null) {
-      headers['Authorization'] = auth;
-      headers['X-Youtube-Bootstrap-Logged-In'] = 'true';
-      final sessionIndex = config['SESSION_INDEX'];
-      headers['X-Goog-AuthUser'] =
-          (sessionIndex != null && sessionIndex.isNotEmpty)
-          ? sessionIndex
-          : '0';
-      final delegatedId = config['DELEGATED_SESSION_ID'];
-      if (delegatedId != null && delegatedId.isNotEmpty) {
-        headers['X-Goog-PageId'] = delegatedId;
+      final auth = authorizationHeader(
+        cookieMap,
+        'https://music.youtube.com',
+        userSessionId: config['USER_SESSION_ID'],
+      );
+      if (auth != null) {
+        headers['Authorization'] = auth;
+        headers['X-Youtube-Bootstrap-Logged-In'] = 'true';
+        final sessionIndex = config['SESSION_INDEX'];
+        headers['X-Goog-AuthUser'] =
+            (sessionIndex != null && sessionIndex.isNotEmpty)
+            ? sessionIndex
+            : '0';
+        final delegatedId = config['DELEGATED_SESSION_ID'];
+        if (delegatedId != null && delegatedId.isNotEmpty) {
+          headers['X-Goog-PageId'] = delegatedId;
+        }
       }
     }
 
@@ -352,13 +470,13 @@ class YTMusic {
       "context": {
         "capabilities": {},
         "client": {
-          "clientName": options?.clientName ?? config['INNERTUBE_CLIENT_NAME'],
-          "clientVersion":
-              options?.clientVersion ?? config['INNERTUBE_CLIENT_VERSION'],
+          "clientName": bodyClientName,
+          "clientVersion": bodyClientVersion,
           "experimentIds": [],
           "experimentsToken": "",
           "gl": config['GL'],
           "hl": config['HL'],
+          if (visitorData.isNotEmpty) "visitorData": visitorData,
           "locationInfo": {
             "locationPermissionAuthorizationStatus":
                 "LOCATION_PERMISSION_AUTHORIZATION_STATUS_UNSUPPORTED",
@@ -370,9 +488,10 @@ class YTMusic {
                 "MUSIC_LOCATION_MASTER_SWITCH_INDETERMINATE",
             "pwaInstallabilityStatus": "PWA_INSTALLABILITY_STATUS_UNKNOWN",
           },
-          "utcOffsetMinutes": -DateTime.now().timeZoneOffset.inMinutes,
+          "utcOffsetMinutes": utcOffsetMinutes,
         },
         "request": {
+          "useSsl": true,
           "internalExperimentFlags": [
             {
               "key": "force_music_enable_outertube_tastebuilder_browse",
@@ -402,7 +521,26 @@ class YTMusic {
       );
 
       // Absorb rotated cookies; usableSetCookies ignores Max-Age<=0 / empty wipes.
-      await saveSetCookiesFromResponse(cookieJar, uri, response);
+      await saveSetCookiesFromResponse(
+        cookieJar,
+        uri,
+        response,
+        onSessionCookiesChanged: onSessionCookiesChanged,
+        onLoginInfoWiped: _handleSessionRevoked,
+      );
+
+      if (response.statusCode == 403 &&
+          allowRetryOn403 &&
+          ytMusicHomeRawHtml == null) {
+        await fetchConfig();
+        return await _constructRequestInternal(
+          endpoint,
+          body: body,
+          query: query,
+          options: options,
+          allowRetryOn403: false,
+        );
+      }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // Decode JSON in a separate isolate to avoid blocking the main thread
@@ -1097,23 +1235,23 @@ class YTMusic {
     final uri = Uri.parse(
       'https://music.youtube.com/watch',
     ).replace(queryParameters: {'v': videoId});
-    final cookies = await cookieJar.loadForRequest(uri);
-    final cookieString = cookies
-        .map((cookie) => '${cookie.name}=${cookie.value}')
-        .join('; ');
-    const socsCookie = 'SOCS=CAI';
+    final cookieMap = await _loadCookiesForRequest(uri, forceSocs: true);
     final headers = {
       ..._baseHeaders,
       'accept':
           'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'cookie': cookieString.isNotEmpty
-          ? '$cookieString; $socsCookie'
-          : socsCookie,
+      'cookie': formatCookieHeader(cookieMap),
     };
 
     try {
       final response = await _client.get(uri, headers: headers);
-      await saveSetCookiesFromResponse(cookieJar, uri, response);
+      await saveSetCookiesFromResponse(
+        cookieJar,
+        uri,
+        response,
+        onSessionCookiesChanged: onSessionCookiesChanged,
+        onLoginInfoWiped: _handleSessionRevoked,
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
       }
@@ -1365,19 +1503,16 @@ class YTMusic {
     final uri = Uri.parse(
       'https://music.youtube.com/playlist',
     ).replace(queryParameters: {'list': audioPlaylistId});
-    final cookies = await cookieJar.loadForRequest(uri);
-    final cookieString = cookies
-        .map((cookie) => '${cookie.name}=${cookie.value}')
-        .join('; ');
-    const socsCookie = 'SOCS=CAI';
-    final headers = {
-      ..._baseHeaders,
-      'cookie': cookieString.isNotEmpty
-          ? '$cookieString; $socsCookie'
-          : socsCookie,
-    };
+    final cookieMap = await _loadCookiesForRequest(uri, forceSocs: true);
+    final headers = {..._baseHeaders, 'cookie': formatCookieHeader(cookieMap)};
     final response = await _client.get(uri, headers: headers);
-    await saveSetCookiesFromResponse(cookieJar, uri, response);
+    await saveSetCookiesFromResponse(
+      cookieJar,
+      uri,
+      response,
+      onSessionCookiesChanged: onSessionCookiesChanged,
+      onLoginInfoWiped: _handleSessionRevoked,
+    );
     final match = RegExp(r'MPREb_[a-zA-Z0-9_-]+').firstMatch(response.body);
     return match?.group(0);
   }

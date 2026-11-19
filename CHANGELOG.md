@@ -1,10 +1,12 @@
 ## Unreleased
 
 **Fixes**
-- Extract `SESSION_INDEX`, `DELEGATED_SESSION_ID`, `DATASYNC_ID`, `LOGGED_IN`, and `STS` from `ytcfg`.
+- Extract `SESSION_INDEX`, `DELEGATED_SESSION_ID`, `DATASYNC_ID`, `LOGGED_IN`, and `STS` from `ytcfg` (allowing whitespace before `{`).
 - Send `X-Youtube-Bootstrap-Logged-In: true`, `X-Goog-AuthUser` (from `SESSION_INDEX`), and `X-Goog-PageId` (from `DELEGATED_SESSION_ID`) only on authenticated requests, omitting `x-goog-authuser` when signed out.
+- Normalize rotated session cookies to `.youtube.com` (`/`), prevent `Set-Cookie: SOCS=...` from overwriting `SOCS=CAI`, deduplicate `Cookie` headers without emitting duplicate `SOCS`, and expose `onSessionCookiesChanged` / `onSessionRevoked` (`LOGIN_INFO` wipe).
 - Re-enable safe `Set-Cookie` rotation persistence on `constructRequest` responses (`usableSetCookies` continues to ignore empty / `Max-Age=0` wipes).
 - Pass `contentCheckOk: true` and `racyCheckOk: true` in `getSong` and `getVideo` `/player` requests.
+- Fix `X-YouTube-Utc-Offset` / `utcOffsetMinutes` sign, omit empty config headers, include `context.client.visitorData`, isolate `ANDROID_MUSIC` headers in `getTimedLyrics`, perform atomic single-flight `fetchConfig()`, recover automatically after offline startup, and retry once on HTTP 403.
 
 ## 1.9.5
 
