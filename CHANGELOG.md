@@ -1,4 +1,4 @@
-## Unreleased
+## 1.9.6
 
 **Fixes**
 - Extract `SESSION_INDEX`, `DELEGATED_SESSION_ID`, `DATASYNC_ID`, `LOGGED_IN`, and `STS` from `ytcfg` (allowing whitespace before `{`).
